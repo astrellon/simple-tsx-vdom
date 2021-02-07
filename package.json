@@ -1,0 +1,16 @@
+{
+  "name": "simple-vdom",
+  "version": "1.0.0",
+  "description": "A simple virtual DOM, not made for performance but for learning",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc && cp src/jsx.d.ts dist/jsx.d.ts && terser -c -m toplevel,reserved=['vdom','render'] --mangle-props builtins -o dist/index.min.js --source-map filename=dist/input.js.map dist/index.js",
+    "test": "jest"
+  },
+  "author": "Alan Lawrey",
+  "license": "MIT",
+  "devDependencies": {
+    "terser": "^5.6.0-beta",
+    "typescript": "^4.1.3"
+  }
+}

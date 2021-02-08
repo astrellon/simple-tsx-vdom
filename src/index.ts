@@ -57,7 +57,7 @@ export type VirtualNodeType = string | CreateNode;
 
 interface VDomData
 {
-    readonly domNode: Node;
+    readonly domNode: Node | undefined;
     readonly vNode: VirtualElement;
 }
 interface VDomDataStore { [vdomKey: string]: VDomData };
@@ -167,27 +167,32 @@ function deleteNodeRecursive(vdomNode: VDomData, key: string)
     removeNode(vdomNode.domNode);
     delete vdomData[key];
 
-    if (vdomNode.vNode.type !== 'text')
+    if (vdomNode.vNode.type === 'intrinsic')
     {
         const children = vdomNode.vNode.children;
         for (let i = 0; i < children.length; i++)
         {
-            const childKey = createChildKey(children[i], key, i);
-
+            const childKey = createChildKey(key, i);
             const childVDom = vdomData[childKey];
             deleteNodeRecursive(childVDom, childKey);
         }
     }
+    else if (vdomNode.vNode.type === 'complex')
+    {
+        const complexKey = createComplexKey(vdomNode.vNode, key);
+        const complexChildVDom = vdomData[complexKey];
+        deleteNodeRecursive(complexChildVDom, complexKey);
+    }
 }
 
-function createChildKey(child: VirtualElement, parentKey: string, index: number)
+function createChildKey(parentKey: string, index: number)
 {
-    let childKey = `${parentKey}_${index}`;
-    if (child.type === 'complex')
-    {
-        childKey += '_' + (child.create.name || 'C');
-    }
-    return childKey;
+    return `${parentKey}_${index}`;
+}
+
+function createComplexKey(parentNode: VirtualComplexElement, parentKey: string)
+{
+    return `${parentKey}_${parentNode.create.name || 'C'}`;
 }
 
 function nodeChanged(oldNode: VirtualElement, newNode: VirtualElement)
@@ -232,13 +237,15 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
         }
         else if ((currentVDom.vNode as VirtualTextElement).text !== vNode.text)
         {
-            domNode.nodeValue = vNode.text;
+            (domNode as Node).nodeValue = vNode.text;
             vdomData[key] = { domNode, vNode }
         }
     }
     else if (vNode.type === 'complex')
     {
-        create(parentNode, vNode.create(vNode.props), `${key}_${vNode.create.name || 'C'}`);
+        const complexChildKey = createComplexKey(vNode, key);
+        create(parentNode, vNode.create(vNode.props), complexChildKey);
+        vdomData[key] = { domNode: undefined, vNode }
     }
     else if (vNode.type === 'intrinsic')
     {
@@ -263,21 +270,15 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
         for (let i = 0; i < vNode.children.length; i++)
         {
             const child = vNode.children[i];
-            const childKey = `${key}_${i}`;
-            create(domNode, child, childKey);
+            const childKey = createChildKey(key, i);
+            create(domNode as Node, child, childKey);
         }
 
         if (currentIntrinsicVNode && currentIntrinsicVNode.children)
         {
             for (let i = vNode.children.length; i < currentIntrinsicVNode.children.length; i++)
             {
-                const child = currentIntrinsicVNode.children[i];
-                let childKey = `${key}_${i}`;
-                if (child.type === 'complex')
-                {
-                    childKey += '_' + (child.create.name || 'C');
-                }
-
+                const childKey = createChildKey(key, i);
                 const childVDom = vdomData[childKey];
                 deleteNodeRecursive(childVDom, childKey);
             }

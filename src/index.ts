@@ -1,16 +1,37 @@
 // How we want our virtual elements to look like
-export interface VirtualElement
+interface IVirtualContainerElement
 {
-    // The name of the node type ('div', 'span', etc)
-    readonly type: VirtualNodeType;
-
     // Properties of the this virtual DOM element.
     readonly props: Props;
 
     // Children can be text or another object element.
     // We need the text special type otherwise we wouldn't have a way to specify text.
-    readonly children: VirtualNode[];
+    readonly children: VirtualElement[];
 }
+
+interface VirtualIntrinsicElement extends IVirtualContainerElement
+{
+    type: 'intrinsic';
+
+    // The name of the node type ('div', 'span', etc)
+    readonly nodeType: string;
+}
+
+interface VirtualComplexElement extends IVirtualContainerElement
+{
+    type: 'complex';
+
+    readonly create: CreateNode;
+}
+
+interface VirtualTextElement
+{
+    type: 'text';
+
+    readonly text: string;
+}
+
+type VirtualElement = VirtualComplexElement | VirtualIntrinsicElement | VirtualTextElement;
 
 // Our properties/attributes are just a map of string keys to any value at the moment.
 interface Props
@@ -18,93 +39,254 @@ interface Props
     readonly [key: string]: any;
 }
 
+interface AttributeDiff
+{
+    attribute: string;
+    value: any;
+    add: boolean;
+}
+interface AttributeDiffs
+{
+    [key: string]: AttributeDiff;
+}
+
 // A virtual node is either and element above or plain text.
 export type VirtualNode = VirtualElement | string | number | boolean;
-export type CreateNode = (props: any) => VirtualNode;
+export type CreateNode = (props: any) => VirtualElement;
 export type VirtualNodeType = string | CreateNode;
 
-// Takes a virtual node and turns it into a DOM node.
-function create(node: VirtualNode): Node
+interface VDomData
 {
-    // Check for string element
-    if (typeof(node) === 'string')
+    readonly domNode: Node;
+    readonly vNode: VirtualElement;
+}
+interface VDomDataStore { [vdomKey: string]: VDomData };
+
+const vdomData: VDomDataStore = { }
+const EmptyIntrinsicNode: VirtualIntrinsicElement = {
+    children: [],
+    nodeType: 'i',
+    props: {},
+    type: 'intrinsic'
+}
+
+function addAttributes(htmlElement: HTMLElement, props: Props)
+{
+    for (const prop in props)
     {
-        // The DOM already has a function for creating text nodes.
-        return document.createTextNode(node);
+        addAttribute(htmlElement, prop, props[prop]);
     }
+}
 
-    // Check for elements that need to be toString'd
-    if (typeof(node) === 'number' || typeof(node) === 'boolean')
+function addAttribute(htmlElement: HTMLElement, attribute: string, value: string | EventListener)
+{
+    // Check if the string starts with the letters 'on'.
+    // Note this function is not available in Internet Explorer.
+    if (attribute.startsWith('on') && typeof(value) === 'function')
     {
-        return document.createTextNode(node.toString());
+        // Chop off the first two characters and use the rest as the event listener type.
+        // Note: This is *not* the correct way to do this.
+        // It'll pick on anything that starts with 'on', like 'onion' or 'once'.
+        // Also we're not checking if the value is actually a function.
+        // For now to get a working example UI we'll go with it.
+        htmlElement.addEventListener(attribute.substr(2), value);
     }
-
-    // Check for functional render
-    if (typeof(node.type) === 'function')
+    else
     {
-        return create(node.type(node.props));
+        // setAttribute is used for any attribute on an element such as class, value, src, etc.
+        htmlElement.setAttribute(attribute, value.toString());
     }
+}
 
-    // The createElement function accepts the node type as a string.
-    const domElement = document.createElement(node.type);
-
-    // Add all attributes to the element.
-    // No handling of event handlers for now.
-    if (node.props)
+function removeAttributes(htmlElement: HTMLElement, props: Props)
+{
+    for (const prop in props)
     {
-        for (const prop in node.props)
-        {
-            // Check if the string starts with the letters 'on'.
-            // Note this function is not available in Internet Explorer.
-            if (prop.startsWith('on'))
-            {
-                // Chop off the first two characters and use the rest as the event listener type.
-                // Note: This is *not* the correct way to do this.
-                // It'll pick on anything that starts with 'on', like 'onion' or 'once'.
-                // Also we're not checking if the value is actually a function.
-                // For now to get a working example UI we'll go with it.
-                domElement.addEventListener(prop.substr(2), node.props[prop]);
-            }
-            else
-            {
-                // setAttribute is used for any attribute on an element such as class, value, src, etc.
-                domElement.setAttribute(prop, node.props[prop]);
-            }
+        removeAttribute(htmlElement, prop, props[prop]);
+    }
+}
+
+function removeAttribute(htmlElement: HTMLElement, attribute: string, listener?: EventListener)
+{
+    // Check if the string starts with the letters 'on'.
+    // Note this function is not available in Internet Explorer.
+    if (attribute.startsWith('on') && typeof(listener) === 'function')
+    {
+        htmlElement.removeEventListener(attribute.substr(2), listener);
+    }
+    else
+    {
+        htmlElement.removeAttribute(attribute);
+    }
+}
+
+function applyAttributes(htmlElement: HTMLElement, currentProps: Props, newProps: Props)
+{
+    const attrs: AttributeDiffs = {};
+    for (const prop in currentProps)
+    {
+        const currentProp = currentProps[prop];
+        attrs[prop] = {
+            add: false,
+            attribute: prop,
+            value: currentProp
         }
     }
 
-    if (node.children)
+    for (const prop in newProps)
     {
-        for (const child of node.children)
+        const currentAttr = attrs[prop];
+        const newProp = newProps[prop];
+        if (currentAttr && currentAttr.value === newProp)
         {
-            domElement.append(create(child));
+            delete attrs[prop];
+            continue;
+        }
+
+        attrs[prop] = {
+            add: true,
+            attribute: prop,
+            value: newProp
         }
     }
 
-    return domElement;
+    for (const prop in attrs)
+    {
+        const attr = attrs[prop];
+        if (attr.add)
+        {
+            addAttribute(htmlElement, prop, attr.value);
+        }
+        else
+        {
+            removeAttribute(htmlElement, prop, attr.value);
+        }
+    }
+}
+
+function removeNode(htmlElement?: Node)
+{
+    if (!htmlElement) return;
+
+    htmlElement.parentElement?.removeChild(htmlElement);
+}
+
+// Takes a virtual node and turns it into a DOM node.
+function create(parentNode: Node, vNode: VirtualElement, key: string)
+{
+    const currentVDom = vdomData[key] || null;
+
+    if (currentVDom == null || currentVDom.vNode.type !== vNode.type)
+    {
+        removeNode(currentVDom?.domNode);
+    }
+
+    let domNode = currentVDom?.domNode;
+
+    if (vNode.type === 'text')
+    {
+        if (!currentVDom || currentVDom.vNode.type !== vNode.type)
+        {
+            domNode = document.createTextNode(vNode.text);
+            parentNode.appendChild(domNode);
+            vdomData[key] = { domNode, vNode }
+        }
+        else if ((currentVDom.vNode as VirtualTextElement).text !== vNode.text)
+        {
+            domNode.nodeValue = vNode.text;
+            vdomData[key] = { domNode, vNode }
+        }
+    }
+    else if (vNode.type === 'complex')
+    {
+        create(parentNode, vNode.create(vNode.props), `${key}_${vNode.create.name || 'C'}`);
+    }
+    else if (vNode.type === 'intrinsic')
+    {
+        const currentIntrinsicVNode = currentVDom?.vNode as VirtualIntrinsicElement;
+        if (!currentVDom || currentIntrinsicVNode.nodeType !== vNode.nodeType)
+        {
+            if (currentVDom)
+            {
+                removeNode(currentVDom.domNode);
+            }
+            domNode = document.createElement(vNode.nodeType);
+            parentNode.appendChild(domNode);
+            addAttributes(domNode as HTMLElement, vNode.props);
+        }
+        else
+        {
+            applyAttributes(currentVDom.domNode as HTMLElement, currentIntrinsicVNode.props, vNode.props);
+        }
+
+        vdomData[key] = { domNode, vNode };
+
+        for (let i = 0; i < vNode.children.length; i++)
+        {
+            const child = vNode.children[i];
+            const childKey = `${key}_${i}`;
+            create(domNode, child, childKey);
+        }
+
+        if (currentIntrinsicVNode && currentIntrinsicVNode.children)
+        {
+            for (let i = vNode.children.length; i < currentIntrinsicVNode.children.length; i++)
+            {
+                const child = currentIntrinsicVNode.children[i];
+                let childKey = `${key}_${i}`;
+                if (child.type === 'complex')
+                {
+                    childKey += '_' + (child.create.name || 'C');
+                }
+
+                const childVDom = vdomData[childKey] || null;
+                removeNode(childVDom?.domNode);
+                delete vdomData[childKey];
+            }
+        }
+    }
+    else
+    {
+        console.error('Unknown vnode type!', vNode);
+    }
 }
 
 // Renders the given virtualNode into the given parent node.
 // This will clear the parent node of all its children.
-export function render(virtualNode: VirtualNode, parent: Node)
+export function render(virtualNode: VirtualElement, parent: HTMLElement)
 {
-    const domNode = create(virtualNode);
+    create(parent, virtualNode, '_root');
 
-    // Make sure to clear the parent node of any children.
-    while (parent.childNodes.length > 0)
-    {
-        parent.firstChild?.remove();
-    }
+    // // Make sure to clear the parent node of any children.
+    // while (parent.childNodes.length > 0)
+    // {
+    //     parent.firstChild?.remove();
+    // }
 
     // Now add our rendered node into the parent.
-    parent.appendChild(domNode);
+    // parent.appendChild(vDomNode.domNode);
 }
 
 // Helper function for creating virtual DOM object.
 export function vdom(type: VirtualNodeType, props: Props, ...children: VirtualNode[]): VirtualElement
 {
     // Handle getting back an array of children. Eg: [[item1, item2]] instead of just [item1, item2].
-    const flatten = !!children ? children.reduce((acc: VirtualNode[], val) => acc.concat(val), []) : [];
+    const flatten = !!children ? children.reduce((acc: VirtualElement[], val) => acc.concat(processNode(val)), []) : [];
 
-    return { type, props, children: flatten };
+    if (typeof(type) === 'string')
+    {
+        return { nodeType: type, props, children: flatten, type: 'intrinsic' }
+    }
+
+    return { create: type, props, children: flatten, type: 'complex' };
+}
+
+function processNode(input: VirtualNode): VirtualElement
+{
+    if (typeof(input) === 'object')
+    {
+        return input as VirtualElement;
+    }
+
+    return { text: input.toString(), type: 'text' }
 }

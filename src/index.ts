@@ -63,12 +63,6 @@ interface VDomData
 interface VDomDataStore { [vdomKey: string]: VDomData };
 
 const vdomData: VDomDataStore = { }
-const EmptyIntrinsicNode: VirtualIntrinsicElement = {
-    children: [],
-    nodeType: 'i',
-    props: {},
-    type: 'intrinsic'
-}
 
 function addAttributes(htmlElement: HTMLElement, props: Props)
 {
@@ -95,14 +89,6 @@ function addAttribute(htmlElement: HTMLElement, attribute: string, value: string
     {
         // setAttribute is used for any attribute on an element such as class, value, src, etc.
         htmlElement.setAttribute(attribute, value.toString());
-    }
-}
-
-function removeAttributes(htmlElement: HTMLElement, props: Props)
-{
-    for (const prop in props)
-    {
-        removeAttribute(htmlElement, prop, props[prop]);
     }
 }
 
@@ -171,6 +157,34 @@ function removeNode(htmlElement?: Node)
     htmlElement.parentElement?.removeChild(htmlElement);
 }
 
+function deleteNode(vdomNode: VDomData, key: string)
+{
+    if (!vdomNode)
+    {
+        return;
+    }
+
+    removeNode(vdomNode.domNode);
+    delete vdomData[key];
+
+    if (vdomNode.vNode.type !== 'text')
+    {
+        const children = vdomNode.vNode.children;
+        for (let i = 0; i < children.length; i++)
+        {
+            const child = children[i];
+            let childKey = `${key}_${i}`;
+            if (child.type === 'complex')
+            {
+                childKey += '_' + (child.create.name || 'C');
+            }
+
+            const childVDom = vdomData[childKey];
+            deleteNode(childVDom, childKey);
+        }
+    }
+}
+
 // Takes a virtual node and turns it into a DOM node.
 function create(parentNode: Node, vNode: VirtualElement, key: string)
 {
@@ -178,7 +192,7 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
 
     if (currentVDom == null || currentVDom.vNode.type !== vNode.type)
     {
-        removeNode(currentVDom?.domNode);
+        deleteNode(currentVDom, key);
     }
 
     let domNode = currentVDom?.domNode;
@@ -239,15 +253,14 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
                     childKey += '_' + (child.create.name || 'C');
                 }
 
-                const childVDom = vdomData[childKey] || null;
-                removeNode(childVDom?.domNode);
-                delete vdomData[childKey];
+                const childVDom = vdomData[childKey];
+                deleteNode(childVDom, childKey);
             }
         }
     }
     else
     {
-        console.error('Unknown vnode type!', vNode);
+        console.error('Unknown vNode type!', vNode);
     }
 }
 
@@ -256,15 +269,6 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
 export function render(virtualNode: VirtualElement, parent: HTMLElement)
 {
     create(parent, virtualNode, '_root');
-
-    // // Make sure to clear the parent node of any children.
-    // while (parent.childNodes.length > 0)
-    // {
-    //     parent.firstChild?.remove();
-    // }
-
-    // Now add our rendered node into the parent.
-    // parent.appendChild(vDomNode.domNode);
 }
 
 // Helper function for creating virtual DOM object.

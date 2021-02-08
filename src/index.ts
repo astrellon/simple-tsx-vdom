@@ -157,7 +157,7 @@ function removeNode(htmlElement?: Node)
     htmlElement.parentElement?.removeChild(htmlElement);
 }
 
-function deleteNode(vdomNode: VDomData, key: string)
+function deleteNodeRecursive(vdomNode: VDomData, key: string)
 {
     if (!vdomNode)
     {
@@ -172,17 +172,42 @@ function deleteNode(vdomNode: VDomData, key: string)
         const children = vdomNode.vNode.children;
         for (let i = 0; i < children.length; i++)
         {
-            const child = children[i];
-            let childKey = `${key}_${i}`;
-            if (child.type === 'complex')
-            {
-                childKey += '_' + (child.create.name || 'C');
-            }
+            const childKey = createChildKey(children[i], key, i);
 
             const childVDom = vdomData[childKey];
-            deleteNode(childVDom, childKey);
+            deleteNodeRecursive(childVDom, childKey);
         }
     }
+}
+
+function createChildKey(child: VirtualElement, parentKey: string, index: number)
+{
+    let childKey = `${parentKey}_${index}`;
+    if (child.type === 'complex')
+    {
+        childKey += '_' + (child.create.name || 'C');
+    }
+    return childKey;
+}
+
+function nodeChanged(oldNode: VirtualElement, newNode: VirtualElement)
+{
+    if (!oldNode)
+    {
+        return false;
+    }
+
+    if (oldNode.type !== newNode.type)
+    {
+        return true;
+    }
+
+    if (oldNode.type === 'complex')
+    {
+        return oldNode.create !== (newNode as VirtualComplexElement).create;
+    }
+
+    return (oldNode as VirtualIntrinsicElement).nodeType !== (newNode as VirtualIntrinsicElement).nodeType;
 }
 
 // Takes a virtual node and turns it into a DOM node.
@@ -190,9 +215,9 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
 {
     const currentVDom = vdomData[key] || null;
 
-    if (currentVDom == null || currentVDom.vNode.type !== vNode.type)
+    if (nodeChanged(currentVDom?.vNode, vNode))
     {
-        deleteNode(currentVDom, key);
+        deleteNodeRecursive(currentVDom, key);
     }
 
     let domNode = currentVDom?.domNode;
@@ -254,7 +279,7 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
                 }
 
                 const childVDom = vdomData[childKey];
-                deleteNode(childVDom, childKey);
+                deleteNodeRecursive(childVDom, childKey);
             }
         }
     }

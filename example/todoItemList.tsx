@@ -17,7 +17,7 @@ export function TodoItemList(props: { items: TodoItem[] })
             Items: {items.length}
         </div>
         <div>
-        { items.map((item, index) => <TodoItemView key={item.id} maxIndex={items.length} index={index} item={item} />) }
+        { items.map((item, index) => <TodoItemView key={item.id.toString()} maxIndex={items.length} index={index} item={item} />) }
         </div>
     </div>;
 }

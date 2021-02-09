@@ -12,13 +12,15 @@ export interface State
 {
     readonly todoItems: TodoItem[];
     readonly nextItemId: number;
+    readonly name: string;
 }
 
 const localStorageKey = 'todoApp';
 const defaultState: State =
 {
     todoItems: [],
-    nextItemId: 0
+    nextItemId: 0,
+    name: 'Alan'
 };
 
 let enableLocalStorage = true;
@@ -131,6 +133,17 @@ export function moveDownItem(id: number): Modifier<State>
         return {
             ...state,
             todoItems
+        }
+    }
+}
+
+export function changeName(name: string): Modifier<State>
+{
+    return (state: State) =>
+    {
+        return {
+            ...state,
+            name
         }
     }
 }

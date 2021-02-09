@@ -17,11 +17,34 @@ interface VirtualIntrinsicElement extends IVirtualContainerElement
     readonly nodeType: string;
 }
 
-interface VirtualComplexElement extends IVirtualContainerElement
+interface VirtualFunctionalElement extends IVirtualContainerElement
 {
-    type: 'complex';
+    type: 'functional';
 
-    readonly create: CreateNode;
+    readonly render: RenderNode;
+}
+
+type VDomComponentConstructor = new () => VDomComponent;
+interface VirtualClassElement extends IVirtualContainerElement
+{
+    type: 'class';
+
+    readonly ctor: VDomComponentConstructor;
+}
+
+export abstract class VDomComponent<TProps extends Props = Props>
+{
+    public props: TProps = ({} as any);
+
+    public componentDidMount() { }
+    public componentWillUnmount() { }
+    public abstract render(): VirtualElement;
+
+    public internalRender(props: TProps): VirtualElement
+    {
+        this.props = props;
+        return this.render();
+    }
 }
 
 interface VirtualTextElement
@@ -31,12 +54,12 @@ interface VirtualTextElement
     readonly text: string;
 }
 
-type VirtualElement = VirtualComplexElement | VirtualIntrinsicElement | VirtualTextElement;
+type VirtualElement = VirtualFunctionalElement | VirtualIntrinsicElement | VirtualTextElement | VirtualClassElement;
 
 // Our properties/attributes are just a map of string keys to any value at the moment.
 interface Props
 {
-    readonly key?: string;
+    readonly key?: string | number;
     readonly [key: string]: any;
 }
 
@@ -52,13 +75,14 @@ interface AttributeDiffs
 
 // A virtual node is either and element above or plain text.
 export type VirtualNode = VirtualElement | string | number | boolean;
-export type CreateNode = (props: any) => VirtualElement;
-export type VirtualNodeType = string | CreateNode;
+export type RenderNode<TProps extends Props = Props> = (props: TProps) => VirtualElement;
+export type VirtualNodeType = string | RenderNode | VDomComponentConstructor;
 
 interface VDomData
 {
-    readonly domNode: Node | undefined;
+    readonly domNode?: Node;
     readonly vNode: VirtualElement;
+    readonly classInstance?: VDomComponent;
 }
 interface VDomDataStore { [vdomKey: string]: VDomData };
 
@@ -163,9 +187,6 @@ function deleteNodeRecursive(vdomNode: VDomData, key: string)
         return;
     }
 
-    removeNode(vdomNode.domNode);
-    delete vdomData[key];
-
     if (vdomNode.vNode.type === 'intrinsic')
     {
         const children = vdomNode.vNode.children;
@@ -176,12 +197,23 @@ function deleteNodeRecursive(vdomNode: VDomData, key: string)
             deleteNodeRecursive(childVDom, childKey);
         }
     }
-    else if (vdomNode.vNode.type === 'complex')
+    else if (vdomNode.vNode.type === 'functional')
     {
-        const complexKey = createComplexKey(key);
-        const complexChildVDom = vdomData[complexKey];
-        deleteNodeRecursive(complexChildVDom, complexKey);
+        const functionalChildKey = createFunctionalKey(key);
+        const functionalChildVDom = vdomData[functionalChildKey];
+        deleteNodeRecursive(functionalChildVDom, functionalChildKey);
     }
+    else if (vdomNode.vNode.type === 'class')
+    {
+        const classChildKey = createClassKey(key);
+        const classChildVDom = vdomData[classChildKey];
+        deleteNodeRecursive(classChildVDom, classChildKey);
+
+        vdomNode.classInstance?.componentWillUnmount();
+    }
+
+    removeNode(vdomNode.domNode);
+    delete vdomData[key];
 }
 
 function createChildKey(child: VirtualElement, parentKey: string, index: number)
@@ -197,9 +229,14 @@ function createChildKey(child: VirtualElement, parentKey: string, index: number)
     return `${parentKey}_${index}`;
 }
 
-function createComplexKey(parentKey: string)
+function createFunctionalKey(parentKey: string)
 {
-    return `${parentKey}_COM`;
+    return `${parentKey}_FUNC`;
+}
+
+function createClassKey(parentKey: string)
+{
+    return `${parentKey}_CLASS`;
 }
 
 function nodeChanged(oldNode: VirtualElement, newNode: VirtualElement)
@@ -214,9 +251,13 @@ function nodeChanged(oldNode: VirtualElement, newNode: VirtualElement)
         return true;
     }
 
-    if (oldNode.type === 'complex')
+    if (oldNode.type === 'functional')
     {
-        return oldNode.create !== (newNode as VirtualComplexElement).create;
+        return oldNode.render !== (newNode as VirtualFunctionalElement).render;
+    }
+    if (oldNode.type === 'class')
+    {
+        return oldNode.ctor !== (newNode as VirtualClassElement).ctor;
     }
 
     return (oldNode as VirtualIntrinsicElement).nodeType !== (newNode as VirtualIntrinsicElement).nodeType;
@@ -248,11 +289,28 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
             vdomData[key] = { domNode, vNode }
         }
     }
-    else if (vNode.type === 'complex')
+    else if (vNode.type === 'functional')
     {
-        const complexChildKey = createComplexKey(key);
-        create(parentNode, vNode.create(vNode.props), complexChildKey);
-        vdomData[key] = { domNode: undefined, vNode }
+        const functionalChildKey = createFunctionalKey(key);
+        create(parentNode, vNode.render(vNode.props), functionalChildKey);
+        vdomData[key] = { vNode }
+    }
+    else if (vNode.type === 'class')
+    {
+        const classChildKey = createClassKey(key);
+        let inst = currentVDom?.classInstance;
+        const isNew = !inst;
+        if (!inst)
+        {
+            inst = new vNode.ctor();
+        }
+        create(parentNode, inst.internalRender(vNode.props), classChildKey);
+        vdomData[key] = { vNode, classInstance: inst }
+
+        if (isNew)
+        {
+            inst.componentDidMount();
+        }
     }
     else if (vNode.type === 'intrinsic')
     {
@@ -294,7 +352,7 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
             create(domNode as Node, child, childKey);
             delete keysToRemove[childKey];
 
-            const newVDom = child.type === 'complex' ? vdomData[createComplexKey(childKey)] : vdomData[childKey];
+            const newVDom = child.type === 'functional' ? vdomData[createFunctionalKey(childKey)] : vdomData[childKey];
             if (domNodeChildren[i] !== newVDom.domNode)
             {
                 newVDom.domNode?.parentNode?.insertBefore(newVDom.domNode, domNodeChildren[i]);
@@ -333,8 +391,12 @@ export function vdom(type: VirtualNodeType, props: Props, ...children: VirtualNo
     {
         return { nodeType: type, props, children: flatten, type: 'intrinsic' }
     }
+    if (type.prototype instanceof VDomComponent)
+    {
+        return { ctor: type as VDomComponentConstructor, children: flatten, type: 'class', props }
+    }
 
-    return { create: type, props, children: flatten, type: 'complex' };
+    return { render: type as RenderNode, props, children: flatten, type: 'functional' };
 }
 
 function processNode(input: VirtualNode): VirtualElement

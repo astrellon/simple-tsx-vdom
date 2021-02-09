@@ -36,14 +36,14 @@ type VirtualElement = VirtualComplexElement | VirtualIntrinsicElement | VirtualT
 // Our properties/attributes are just a map of string keys to any value at the moment.
 interface Props
 {
+    readonly key?: string;
     readonly [key: string]: any;
 }
 
 interface AttributeDiff
 {
-    attribute: string;
-    value: any;
-    add: boolean;
+    readonly attribute: string;
+    readonly value: any;
 }
 interface AttributeDiffs
 {
@@ -63,6 +63,7 @@ interface VDomData
 interface VDomDataStore { [vdomKey: string]: VDomData };
 
 const vdomData: VDomDataStore = { }
+const EmptyArray: any[] = [];
 
 function addAttributes(htmlElement: HTMLElement, props: Props)
 {
@@ -108,12 +109,13 @@ function removeAttribute(htmlElement: HTMLElement, attribute: string, listener?:
 
 function applyAttributes(htmlElement: HTMLElement, currentProps: Props, newProps: Props)
 {
-    const attrs: AttributeDiffs = {};
+    const removeAttrs: AttributeDiffs = {};
+    const addAttrs: AttributeDiffs = {};
+
     for (const prop in currentProps)
     {
         const currentProp = currentProps[prop];
-        attrs[prop] = {
-            add: false,
+        removeAttrs[prop] = {
             attribute: prop,
             value: currentProp
         }
@@ -121,32 +123,29 @@ function applyAttributes(htmlElement: HTMLElement, currentProps: Props, newProps
 
     for (const prop in newProps)
     {
-        const currentAttr = attrs[prop];
+        const currentAttr = removeAttrs[prop];
         const newProp = newProps[prop];
         if (currentAttr && currentAttr.value === newProp)
         {
-            delete attrs[prop];
+            delete removeAttrs[prop];
             continue;
         }
 
-        attrs[prop] = {
-            add: true,
+        addAttrs[prop] = {
             attribute: prop,
             value: newProp
         }
     }
 
-    for (const prop in attrs)
+    for (const prop in removeAttrs)
     {
-        const attr = attrs[prop];
-        if (attr.add)
-        {
-            addAttribute(htmlElement, prop, attr.value);
-        }
-        else
-        {
-            removeAttribute(htmlElement, prop, attr.value);
-        }
+        const attr = removeAttrs[prop];
+        removeAttribute(htmlElement, prop, attr.value);
+    }
+    for (const prop in addAttrs)
+    {
+        const attr = addAttrs[prop];
+        addAttribute(htmlElement, prop, attr.value);
     }
 }
 
@@ -172,27 +171,35 @@ function deleteNodeRecursive(vdomNode: VDomData, key: string)
         const children = vdomNode.vNode.children;
         for (let i = 0; i < children.length; i++)
         {
-            const childKey = createChildKey(key, i);
+            const childKey = createChildKey(children[i], key, i);
             const childVDom = vdomData[childKey];
             deleteNodeRecursive(childVDom, childKey);
         }
     }
     else if (vdomNode.vNode.type === 'complex')
     {
-        const complexKey = createComplexKey(vdomNode.vNode, key);
+        const complexKey = createComplexKey(key);
         const complexChildVDom = vdomData[complexKey];
         deleteNodeRecursive(complexChildVDom, complexKey);
     }
 }
 
-function createChildKey(parentKey: string, index: number)
+function createChildKey(child: VirtualElement, parentKey: string, index: number)
 {
+    if (child.type !== 'text')
+    {
+        const childKey = child.props?.key;
+        if (childKey != undefined)
+        {
+            return `${parentKey}_${childKey}`;
+        }
+    }
     return `${parentKey}_${index}`;
 }
 
-function createComplexKey(parentNode: VirtualComplexElement, parentKey: string)
+function createComplexKey(parentKey: string)
 {
-    return `${parentKey}_${parentNode.create.name || 'C'}`;
+    return `${parentKey}_COM`;
 }
 
 function nodeChanged(oldNode: VirtualElement, newNode: VirtualElement)
@@ -243,13 +250,15 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
     }
     else if (vNode.type === 'complex')
     {
-        const complexChildKey = createComplexKey(vNode, key);
+        const complexChildKey = createComplexKey(key);
         create(parentNode, vNode.create(vNode.props), complexChildKey);
         vdomData[key] = { domNode: undefined, vNode }
     }
     else if (vNode.type === 'intrinsic')
     {
         const currentIntrinsicVNode = currentVDom?.vNode as VirtualIntrinsicElement;
+        const previousChildren = currentIntrinsicVNode?.children || EmptyArray;
+
         if (!currentVDom || currentIntrinsicVNode.nodeType !== vNode.nodeType)
         {
             if (currentVDom)
@@ -266,27 +275,37 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
         }
 
         vdomData[key] = { domNode, vNode };
+        const keysToRemove: {[key: string]: VirtualElement} = {};
+        const previousVNodes: VDomData[] = [];
 
+        for (let i = 0; i < previousChildren.length; i++)
+        {
+            const child = previousChildren[i];
+            const childKey = createChildKey(child, key, i);
+            keysToRemove[childKey] = child;
+            previousVNodes[i] = vdomData[childKey];
+        }
+
+        const domNodeChildren = domNode?.childNodes as NodeListOf<ChildNode>;
         for (let i = 0; i < vNode.children.length; i++)
         {
             const child = vNode.children[i];
-            const childKey = createChildKey(key, i);
+            const childKey = createChildKey(child, key, i);
             create(domNode as Node, child, childKey);
-        }
+            delete keysToRemove[childKey];
 
-        if (currentIntrinsicVNode && currentIntrinsicVNode.children)
-        {
-            for (let i = vNode.children.length; i < currentIntrinsicVNode.children.length; i++)
+            const newVDom = child.type === 'complex' ? vdomData[createComplexKey(childKey)] : vdomData[childKey];
+            if (domNodeChildren[i] !== newVDom.domNode)
             {
-                const childKey = createChildKey(key, i);
-                const childVDom = vdomData[childKey];
-                deleteNodeRecursive(childVDom, childKey);
+                newVDom.domNode?.parentNode?.insertBefore(newVDom.domNode, domNodeChildren[i]);
             }
         }
-    }
-    else
-    {
-        console.error('Unknown vNode type!', vNode);
+
+        for (const childKey in keysToRemove)
+        {
+            const childVDom = vdomData[childKey];
+            deleteNodeRecursive(childVDom, childKey);
+        }
     }
 }
 
@@ -301,7 +320,14 @@ export function render(virtualNode: VirtualElement, parent: HTMLElement)
 export function vdom(type: VirtualNodeType, props: Props, ...children: VirtualNode[]): VirtualElement
 {
     // Handle getting back an array of children. Eg: [[item1, item2]] instead of just [item1, item2].
-    const flatten = !!children ? children.reduce((acc: VirtualElement[], val) => acc.concat(processNode(val)), []) : [];
+    const flatten = !!children ? children.reduce((acc: VirtualElement[], val) =>
+    {
+        if (val == undefined || val === false)
+        {
+            return acc;
+        }
+        return acc.concat(processNode(val))
+    }, []) : [];
 
     if (typeof(type) === 'string')
     {

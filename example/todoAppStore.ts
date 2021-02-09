@@ -1,3 +1,4 @@
+import { truncate } from "fs";
 import { Store, Modifier } from "./store";
 
 // Definition of types for state management.
@@ -87,5 +88,49 @@ export function removeTodoItem(id: number): Modifier<State>
             ...state,
             todoItems: state.todoItems.filter(item => item.id !== id)
         };
+    }
+}
+
+export function moveUpItem(id: number): Modifier<State>
+{
+    return (state: State) =>
+    {
+        const index = state.todoItems.findIndex(item => item.id === id);
+        if (index <= 0)
+        {
+            return state;
+        }
+
+        const todoItems = [...state.todoItems];
+        const item = todoItems[index];
+        todoItems.splice(index, 1);
+        todoItems.splice(index - 1, 0, item);
+
+        return {
+            ...state,
+            todoItems
+        }
+    }
+}
+
+export function moveDownItem(id: number): Modifier<State>
+{
+    return (state: State) =>
+    {
+        const index = state.todoItems.findIndex(item => item.id === id);
+        if (index >= state.todoItems.length - 1)
+        {
+            return state;
+        }
+
+        const todoItems = [...state.todoItems];
+        const item = todoItems[index];
+        todoItems.splice(index, 1);
+        todoItems.splice(index + 1, 0, item);
+
+        return {
+            ...state,
+            todoItems
+        }
     }
 }

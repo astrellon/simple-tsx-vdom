@@ -1,4 +1,3 @@
-import { truncate } from "fs";
 import { Store, Modifier } from "./store";
 
 // Definition of types for state management.
@@ -13,6 +12,8 @@ export interface State
     readonly todoItems: TodoItem[];
     readonly nextItemId: number;
     readonly name: string;
+    readonly mouseX: number;
+    readonly mouseY: number;
 }
 
 const localStorageKey = 'todoApp';
@@ -20,7 +21,9 @@ const defaultState: State =
 {
     todoItems: [],
     nextItemId: 0,
-    name: 'Alan'
+    name: 'Alan',
+    mouseX: 0,
+    mouseY: 0
 };
 
 let enableLocalStorage = true;
@@ -144,6 +147,18 @@ export function changeName(name: string): Modifier<State>
         return {
             ...state,
             name
+        }
+    }
+}
+
+export function setMousePosition(x: number, y: number): Modifier<State>
+{
+    return (state: State) =>
+    {
+        return {
+            ...state,
+            mouseX: x,
+            mouseY: y
         }
     }
 }

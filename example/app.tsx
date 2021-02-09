@@ -1,6 +1,7 @@
 import { vdom, VDomComponent } from "../src";
-import { State, todoAppStore, addTodoItem, changeName } from "./todoAppStore";
+import { State, todoAppStore, addTodoItem, changeName, setMousePosition } from "./todoAppStore";
 import { TodoItemList } from "./todoItemList";
+import { MouseRenderClass } from './mouseRender';
 
 function addItem()
 {
@@ -42,6 +43,11 @@ class TestComp extends VDomComponent<Props>
     }
 }
 
+function onUpdateMouse(x: number, y: number)
+{
+    todoAppStore.execute(setMousePosition(x, y));
+}
+
 export function App(props: {state: State})
 {
     const { state } = props;
@@ -51,6 +57,9 @@ export function App(props: {state: State})
         <p>
             <button onclick={addItem}>Add Item</button>
         </p>
+        <div>
+            <MouseRenderClass x={state.mouseX} y={state.mouseY} onUpdate={onUpdateMouse} />
+        </div>
         { state.todoItems.length < 5 &&
         <p>
             <TestComp nameField={state.name} />

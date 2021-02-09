@@ -1,29 +1,40 @@
-import { vdom } from "../src";
+import { vdom, VDomComponent } from "../src";
 import { todoAppStore, removeTodoItem, TodoItem, moveUpItem, moveDownItem } from "./todoAppStore";
 
-function removeItem(id: number)
+interface Props
 {
-    todoAppStore.execute(removeTodoItem(id));
+    readonly maxIndex: number;
+    readonly index: number;
+    readonly item: TodoItem
 }
 
-function moveUp(id: number)
+export class TodoItemView extends VDomComponent<Props>
 {
-    todoAppStore.execute(moveUpItem(id));
-}
+    public render()
+    {
+        const { maxIndex, index, item } = this.props;
 
-function moveDown(id: number)
-{
-    todoAppStore.execute(moveDownItem(id));
-}
+        return <div>
+            <strong>{item.text}</strong>
+            <button onclick={this.removeItem}>Remove</button>
 
-export function TodoItemView(props: { maxIndex: number, index: number, item: TodoItem })
-{
-    return <div>
-        <strong>{props.item.text}</strong>
-        <button onclick={() => removeItem(props.item.id)}>Remove</button>
-        { props.index > 0 &&
-        <button onclick={() => moveUp(props.item.id)}>Up</button> }
-        { props.index < props.maxIndex - 1 &&
-        <button onclick={() => moveDown(props.item.id)}>Down</button> }
-    </div>
+            {index > 0 && <button onclick={this.moveUp}>Up</button>}
+            {index < maxIndex - 1 && <button onclick={this.moveDown}>Down</button>}
+        </div>
+    }
+
+    private removeItem = () =>
+    {
+        todoAppStore.execute(removeTodoItem(this.props.item.id));
+    }
+
+    private moveUp = () =>
+    {
+        todoAppStore.execute(moveUpItem(this.props.item.id));
+    }
+
+    private moveDown = () =>
+    {
+        todoAppStore.execute(moveDownItem(this.props.item.id));
+    }
 }

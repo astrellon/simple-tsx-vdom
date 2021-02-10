@@ -9,9 +9,14 @@ interface IVirtualContainerElement
     readonly children: VirtualElement[];
 }
 
+const Intrinsic: 1 = 1;
+const Functional: 2 = 2;
+const Class: 3 = 3;
+const Text: 4 = 4;
+
 interface VirtualIntrinsicElement extends IVirtualContainerElement
 {
-    type: 'intrinsic';
+    type: 1;
 
     // The name of the node type ('div', 'span', etc)
     readonly nodeType: string;
@@ -19,7 +24,7 @@ interface VirtualIntrinsicElement extends IVirtualContainerElement
 
 interface VirtualFunctionalElement extends IVirtualContainerElement
 {
-    type: 'functional';
+    type: 2;
 
     readonly render: RenderNode;
 }
@@ -27,7 +32,7 @@ interface VirtualFunctionalElement extends IVirtualContainerElement
 type VDomComponentConstructor = new () => VDomComponent;
 interface VirtualClassElement extends IVirtualContainerElement
 {
-    type: 'class';
+    type: 3;
 
     readonly ctor: VDomComponentConstructor;
 }
@@ -35,21 +40,24 @@ interface VirtualClassElement extends IVirtualContainerElement
 export abstract class VDomComponent<TProps extends Props = Props>
 {
     public props: TProps = ({} as any);
+    public children: VirtualElement[] = [];
 
     public componentDidMount() { }
     public componentWillUnmount() { }
     public abstract render(): VirtualElement;
 
-    public internalRender(props: TProps): VirtualElement
+    public internalRender(props: TProps, children: VirtualElement[]): VirtualElement
     {
         this.props = props;
+        this.children = children;
+
         return this.render();
     }
 }
 
 interface VirtualTextElement
 {
-    type: 'text';
+    type: 4;
 
     readonly text: string;
 }
@@ -75,7 +83,7 @@ interface AttributeDiffs
 
 // A virtual node is either and element above or plain text.
 export type VirtualNode = VirtualElement | string | number | boolean;
-export type RenderNode<TProps extends Props = Props> = (props: TProps) => VirtualElement;
+export type RenderNode<TProps extends Props = Props> = (props: TProps, children: VirtualElement[]) => VirtualElement;
 export type VirtualNodeType = string | RenderNode | VDomComponentConstructor;
 
 interface VDomData
@@ -187,7 +195,7 @@ function deleteNodeRecursive(vdomNode: VDomData, key: string)
         return;
     }
 
-    if (vdomNode.vNode.type === 'intrinsic')
+    if (vdomNode.vNode.type === Intrinsic)
     {
         const children = vdomNode.vNode.children;
         for (let i = 0; i < children.length; i++)
@@ -197,13 +205,13 @@ function deleteNodeRecursive(vdomNode: VDomData, key: string)
             deleteNodeRecursive(childVDom, childKey);
         }
     }
-    else if (vdomNode.vNode.type === 'functional')
+    else if (vdomNode.vNode.type === Functional)
     {
         const functionalChildKey = createComplexKey(key);
         const functionalChildVDom = vdomData[functionalChildKey];
         deleteNodeRecursive(functionalChildVDom, functionalChildKey);
     }
-    else if (vdomNode.vNode.type === 'class')
+    else if (vdomNode.vNode.type === Class)
     {
         const classChildKey = createComplexKey(key);
         const classChildVDom = vdomData[classChildKey];
@@ -218,7 +226,7 @@ function deleteNodeRecursive(vdomNode: VDomData, key: string)
 
 function createChildKey(child: VirtualElement, parentKey: string, index: number)
 {
-    if (child.type !== 'text')
+    if (child.type !== Text)
     {
         const childKey = child.props?.key;
         if (childKey != undefined)
@@ -246,11 +254,11 @@ function nodeChanged(oldNode: VirtualElement, newNode: VirtualElement)
         return true;
     }
 
-    if (oldNode.type === 'functional')
+    if (oldNode.type === Functional)
     {
         return oldNode.render !== (newNode as VirtualFunctionalElement).render;
     }
-    if (oldNode.type === 'class')
+    if (oldNode.type === Class)
     {
         return oldNode.ctor !== (newNode as VirtualClassElement).ctor;
     }
@@ -270,7 +278,7 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
 
     let domNode = currentVDom?.domNode;
 
-    if (vNode.type === 'text')
+    if (vNode.type === Text)
     {
         if (!currentVDom || currentVDom.vNode.type !== vNode.type)
         {
@@ -284,22 +292,28 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
             vdomData[key] = { domNode, vNode }
         }
     }
-    else if (vNode.type === 'functional')
+    else if (vNode.type === Functional)
     {
         const functionalChildKey = createComplexKey(key);
-        create(parentNode, vNode.render(vNode.props), functionalChildKey);
+        create(parentNode, vNode.render(vNode.props, vNode.children), functionalChildKey);
         vdomData[key] = { vNode }
     }
-    else if (vNode.type === 'class')
+    else if (vNode.type === Class)
     {
+        if (currentVDom?.vNode && shallowEqual((currentVDom.vNode as VirtualClassElement).props, vNode.props))
+        {
+            return;
+        }
+
         const classChildKey = createComplexKey(key);
+
         let inst = currentVDom?.classInstance;
         const isNew = !inst;
         if (!inst)
         {
             inst = new vNode.ctor();
         }
-        create(parentNode, inst.internalRender(vNode.props), classChildKey);
+        create(parentNode, inst.internalRender(vNode.props, vNode.children), classChildKey);
         vdomData[key] = { vNode, classInstance: inst }
 
         if (isNew)
@@ -307,7 +321,7 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
             inst.componentDidMount();
         }
     }
-    else if (vNode.type === 'intrinsic')
+    else if (vNode.type === Intrinsic)
     {
         const currentIntrinsicVNode = currentVDom?.vNode as VirtualIntrinsicElement;
         const previousChildren = currentIntrinsicVNode?.children || EmptyArray;
@@ -347,7 +361,7 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
             create(domNode as Node, child, childKey);
             delete keysToRemove[childKey];
 
-            const newVDom = child.type === 'functional' || child.type === 'class' ?
+            const newVDom = child.type === Functional || child.type === Class ?
                 vdomData[createComplexKey(childKey)] :
                 vdomData[childKey];
 
@@ -376,33 +390,66 @@ export function render(virtualNode: VirtualElement, parent: HTMLElement)
 export function vdom(type: VirtualNodeType, props: Props, ...children: VirtualNode[]): VirtualElement
 {
     // Handle getting back an array of children. Eg: [[item1, item2]] instead of just [item1, item2].
-    const flatten = !!children ? children.reduce((acc: VirtualElement[], val) =>
-    {
-        if (val == undefined || val === false)
-        {
-            return acc;
-        }
-        return acc.concat(processNode(val))
-    }, []) : [];
+    const flatten = !!children ? children.flat(Infinity)
+        .filter(child => !!child)
+        .map(processNode) : [];
+
+    props = props || {};
 
     if (typeof(type) === 'string')
     {
-        return { nodeType: type, props, children: flatten, type: 'intrinsic' }
+        return { nodeType: type, props, children: flatten, type: Intrinsic }
     }
     if (type.prototype instanceof VDomComponent)
     {
-        return { ctor: type as VDomComponentConstructor, children: flatten, type: 'class', props }
+        return { ctor: type as VDomComponentConstructor, children: flatten, type: Class, props }
     }
 
-    return { render: type as RenderNode, props, children: flatten, type: 'functional' };
+    return { render: type as RenderNode, props, children: flatten, type: Functional };
 }
 
 function processNode(input: VirtualNode): VirtualElement
 {
     if (typeof(input) === 'object')
     {
+        if (!(input as any).props)
+        {
+            return { ...input, props: {} } as any;
+        }
         return input as VirtualElement;
     }
 
-    return { text: input.toString(), type: 'text' }
+    return { text: input.toString(), type: Text }
+}
+
+function shallowEqual(objA: Props, objB: Props)
+{
+    if (objA === objB)
+    {
+        return true;
+    }
+
+    if (objA === null || objB === null)
+    {
+        return false;
+    }
+
+    const keysA = Object.keys(objA);
+    const keysB = Object.keys(objB);
+
+    if (keysA.length !== keysB.length)
+    {
+        return false;
+    }
+
+    // Test for A's keys different from B.
+    for (let i = 0; i < keysA.length; i++)
+    {
+        if (objA[keysA[i]] !== objB[keysA[i]])
+        {
+            return false;
+        }
+    }
+
+    return true;
 }

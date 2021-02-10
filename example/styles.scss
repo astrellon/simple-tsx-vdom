@@ -1,0 +1,7 @@
+@import './variables';
+
+body {
+    font-family: 'Montserrat', helvetica, arial, sans-serif;
+    background: $theme-colour;
+    color: $text-black;
+}

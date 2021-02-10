@@ -1,5 +1,7 @@
 import { vdom, VDomComponent } from "../src";
 import { todoAppStore, removeTodoItem, TodoItem, moveUpItem, moveDownItem } from "./todoAppStore";
+import PillButton from "./pillButton";
+import { ButtonGroup } from "./buttonGroup";
 
 interface Props
 {
@@ -16,10 +18,12 @@ export class TodoItemView extends VDomComponent<Props>
 
         return <div>
             <strong>{item.text}</strong>
-            <button onclick={this.removeItem}>Remove</button>
+            <ButtonGroup>
+                <PillButton onClick={this.removeItem} label='Remove' />
 
-            {index > 0 && <button onclick={this.moveUp}>Up</button>}
-            {index < maxIndex - 1 && <button onclick={this.moveDown}>Down</button>}
+                {index > 0 && <PillButton onClick={this.moveUp} label='Up' />}
+                {index < maxIndex - 1 && <PillButton onClick={this.moveDown} label='Down' />}
+            </ButtonGroup>
         </div>
     }
 

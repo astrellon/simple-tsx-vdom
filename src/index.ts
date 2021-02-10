@@ -199,13 +199,13 @@ function deleteNodeRecursive(vdomNode: VDomData, key: string)
     }
     else if (vdomNode.vNode.type === 'functional')
     {
-        const functionalChildKey = createFunctionalKey(key);
+        const functionalChildKey = createComplexKey(key);
         const functionalChildVDom = vdomData[functionalChildKey];
         deleteNodeRecursive(functionalChildVDom, functionalChildKey);
     }
     else if (vdomNode.vNode.type === 'class')
     {
-        const classChildKey = createClassKey(key);
+        const classChildKey = createComplexKey(key);
         const classChildVDom = vdomData[classChildKey];
         deleteNodeRecursive(classChildVDom, classChildKey);
 
@@ -229,14 +229,9 @@ function createChildKey(child: VirtualElement, parentKey: string, index: number)
     return `${parentKey}_${index}`;
 }
 
-function createFunctionalKey(parentKey: string)
+function createComplexKey(parentKey: string)
 {
-    return `${parentKey}_FUNC`;
-}
-
-function createClassKey(parentKey: string)
-{
-    return `${parentKey}_CLASS`;
+    return `${parentKey}_C`;
 }
 
 function nodeChanged(oldNode: VirtualElement, newNode: VirtualElement)
@@ -291,13 +286,13 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
     }
     else if (vNode.type === 'functional')
     {
-        const functionalChildKey = createFunctionalKey(key);
+        const functionalChildKey = createComplexKey(key);
         create(parentNode, vNode.render(vNode.props), functionalChildKey);
         vdomData[key] = { vNode }
     }
     else if (vNode.type === 'class')
     {
-        const classChildKey = createClassKey(key);
+        const classChildKey = createComplexKey(key);
         let inst = currentVDom?.classInstance;
         const isNew = !inst;
         if (!inst)
@@ -352,7 +347,10 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
             create(domNode as Node, child, childKey);
             delete keysToRemove[childKey];
 
-            const newVDom = child.type === 'functional' ? vdomData[createFunctionalKey(childKey)] : vdomData[childKey];
+            const newVDom = child.type === 'functional' || child.type === 'class' ?
+                vdomData[createComplexKey(childKey)] :
+                vdomData[childKey];
+
             if (domNodeChildren[i] !== newVDom.domNode)
             {
                 newVDom.domNode?.parentNode?.insertBefore(newVDom.domNode, domNodeChildren[i]);

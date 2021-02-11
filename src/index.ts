@@ -271,9 +271,119 @@ function hasVElementChanged(oldNode: VirtualElement, newNode: VirtualElement)
     return (oldNode as VirtualIntrinsicElement).nodeType !== (newNode as VirtualIntrinsicElement).nodeType;
 }
 
+function createTextNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualTextElement, key: string)
+{
+    if (!currentVDom || currentVDom.vNode.type !== vNode.type)
+    {
+        const domNode = document.createTextNode(vNode.text);
+        parentNode.appendChild(domNode);
+        vdomData[key] = { domNode, vNode }
+    }
+    else if ((currentVDom.vNode as VirtualTextElement).text !== vNode.text)
+    {
+        (currentVDom.domNode as Node).nodeValue = vNode.text;
+        vdomData[key] = { domNode: currentVDom.domNode, vNode }
+    }
+}
+
+function createFunctionalNode(parentNode: Node, vNode: VirtualFunctionalElement, key: string)
+{
+    const functionalChildKey = createComplexKey(key);
+    create(parentNode, vNode.render(vNode.props, vNode.children), functionalChildKey);
+    vdomData[key] = { vNode }
+}
+
+function createClassNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualClassElement, key: string)
+{
+    if (currentVDom?.vNode && shallowEqual((currentVDom.vNode as VirtualClassElement).props, vNode.props))
+    {
+        return;
+    }
+
+    const classChildKey = createComplexKey(key);
+
+    let inst = currentVDom?.classInstance;
+    const isNew = !inst;
+    if (!inst)
+    {
+        inst = new vNode.ctor();
+    }
+    create(parentNode, inst.internalRender(vNode.props, vNode.children), classChildKey);
+    vdomData[key] = { vNode, classInstance: inst }
+
+    if (isNew)
+    {
+        inst.componentDidMount();
+    }
+}
+
+function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualIntrinsicElement, key: string)
+{
+    const currentIntrinsicVNode = currentVDom?.vNode as VirtualIntrinsicElement;
+    const previousChildren = currentIntrinsicVNode?.children || [];
+    let domNode = currentVDom?.domNode;
+
+    if (!currentVDom || currentIntrinsicVNode.nodeType !== vNode.nodeType)
+    {
+        if (currentVDom)
+        {
+            removeHtmlNode(currentVDom.domNode);
+        }
+        domNode = document.createElement(vNode.nodeType);
+        parentNode.appendChild(domNode);
+        addAttributes(domNode as HTMLElement, vNode.props);
+    }
+    else
+    {
+        applyAttributes(currentVDom.domNode as HTMLElement, currentIntrinsicVNode.props, vNode.props);
+    }
+
+    vdomData[key] = { domNode, vNode };
+    const keysToRemove: { [key: string]: VirtualElement } = {};
+    const previousVNodes: VDomData[] = [];
+
+    for (let i = 0; i < previousChildren.length; i++)
+    {
+        const child = previousChildren[i];
+        const childKey = createChildKey(child, key, i);
+        keysToRemove[childKey] = child;
+        previousVNodes[i] = vdomData[childKey];
+    }
+
+    const domNodeChildren = domNode?.childNodes as NodeListOf<ChildNode>;
+    for (let i = 0; i < vNode.children.length; i++)
+    {
+        const child = vNode.children[i];
+        const childKey = createChildKey(child, key, i);
+        create(domNode as Node, child, childKey);
+        delete keysToRemove[childKey];
+
+        const newVDom = child.type === Functional || child.type === Class ?
+            vdomData[createComplexKey(childKey)] :
+            vdomData[childKey];
+
+        if (domNodeChildren[i] !== newVDom.domNode)
+        {
+            newVDom.domNode?.parentNode?.insertBefore(newVDom.domNode, domNodeChildren[i]);
+        }
+    }
+
+    for (const childKey in keysToRemove)
+    {
+        const childVDom = vdomData[childKey];
+        deleteVDomDataRecursive(childVDom, childKey);
+    }
+}
+
 // Takes a virtual node and turns it into a DOM node.
 function create(parentNode: Node, vNode: VirtualElement, key: string)
 {
+    if (vNode.type === Functional)
+    {
+        createFunctionalNode(parentNode, vNode, key);
+        return;
+    }
+
     const currentVDom = vdomData[key] || null;
 
     if (hasVElementChanged(currentVDom?.vNode, vNode))
@@ -281,106 +391,17 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
         deleteVDomDataRecursive(currentVDom, key);
     }
 
-    let domNode = currentVDom?.domNode;
-
     if (vNode.type === Text)
     {
-        if (!currentVDom || currentVDom.vNode.type !== vNode.type)
-        {
-            domNode = document.createTextNode(vNode.text);
-            parentNode.appendChild(domNode);
-            vdomData[key] = { domNode, vNode }
-        }
-        else if ((currentVDom.vNode as VirtualTextElement).text !== vNode.text)
-        {
-            (domNode as Node).nodeValue = vNode.text;
-            vdomData[key] = { domNode, vNode }
-        }
-    }
-    else if (vNode.type === Functional)
-    {
-        const functionalChildKey = createComplexKey(key);
-        create(parentNode, vNode.render(vNode.props, vNode.children), functionalChildKey);
-        vdomData[key] = { vNode }
+        createTextNode(currentVDom, parentNode, vNode, key);
     }
     else if (vNode.type === Class)
     {
-        if (currentVDom?.vNode && shallowEqual((currentVDom.vNode as VirtualClassElement).props, vNode.props))
-        {
-            return;
-        }
-
-        const classChildKey = createComplexKey(key);
-
-        let inst = currentVDom?.classInstance;
-        const isNew = !inst;
-        if (!inst)
-        {
-            inst = new vNode.ctor();
-        }
-        create(parentNode, inst.internalRender(vNode.props, vNode.children), classChildKey);
-        vdomData[key] = { vNode, classInstance: inst }
-
-        if (isNew)
-        {
-            inst.componentDidMount();
-        }
+        createClassNode(currentVDom, parentNode, vNode, key);
     }
     else if (vNode.type === Intrinsic)
     {
-        const currentIntrinsicVNode = currentVDom?.vNode as VirtualIntrinsicElement;
-        const previousChildren = currentIntrinsicVNode?.children || [];
-
-        if (!currentVDom || currentIntrinsicVNode.nodeType !== vNode.nodeType)
-        {
-            if (currentVDom)
-            {
-                removeHtmlNode(currentVDom.domNode);
-            }
-            domNode = document.createElement(vNode.nodeType);
-            parentNode.appendChild(domNode);
-            addAttributes(domNode as HTMLElement, vNode.props);
-        }
-        else
-        {
-            applyAttributes(currentVDom.domNode as HTMLElement, currentIntrinsicVNode.props, vNode.props);
-        }
-
-        vdomData[key] = { domNode, vNode };
-        const keysToRemove: {[key: string]: VirtualElement} = {};
-        const previousVNodes: VDomData[] = [];
-
-        for (let i = 0; i < previousChildren.length; i++)
-        {
-            const child = previousChildren[i];
-            const childKey = createChildKey(child, key, i);
-            keysToRemove[childKey] = child;
-            previousVNodes[i] = vdomData[childKey];
-        }
-
-        const domNodeChildren = domNode?.childNodes as NodeListOf<ChildNode>;
-        for (let i = 0; i < vNode.children.length; i++)
-        {
-            const child = vNode.children[i];
-            const childKey = createChildKey(child, key, i);
-            create(domNode as Node, child, childKey);
-            delete keysToRemove[childKey];
-
-            const newVDom = child.type === Functional || child.type === Class ?
-                vdomData[createComplexKey(childKey)] :
-                vdomData[childKey];
-
-            if (domNodeChildren[i] !== newVDom.domNode)
-            {
-                newVDom.domNode?.parentNode?.insertBefore(newVDom.domNode, domNodeChildren[i]);
-            }
-        }
-
-        for (const childKey in keysToRemove)
-        {
-            const childVDom = vdomData[childKey];
-            deleteVDomDataRecursive(childVDom, childKey);
-        }
+        createIntrinsicNode(currentVDom, parentNode, vNode, key);
     }
 }
 

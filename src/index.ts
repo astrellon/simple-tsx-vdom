@@ -13,32 +13,24 @@ interface IVirtualContainerElement
 
 interface VirtualIntrinsicElement extends IVirtualContainerElement
 {
-    type: 1;
-
     // The name of the node type ('div', 'span', etc)
-    readonly nodeType: string;
+    readonly intrinsicType: string;
 }
 
 interface VirtualFunctionalElement extends IVirtualContainerElement
 {
-    type: 2;
-
-    readonly render: RenderNode;
+    readonly renderNode: RenderNode;
 }
 
 type VDomComponentConstructor = new () => VDomComponent;
 interface VirtualClassElement extends IVirtualContainerElement
 {
-    type: 3;
-
     readonly ctor: VDomComponentConstructor;
 }
 
 interface VirtualTextElement
 {
-    type: 4;
-
-    readonly text: string;
+    readonly textValues: string;
 }
 
 //// Internal Diffing Types
@@ -83,8 +75,8 @@ export abstract class VDomComponent<TProps extends Props = Props>
     public children: VirtualElement[] = [];
     public vdomKey: string = '';
 
-    public componentDidMount() { }
-    public componentWillUnmount() { }
+    public onMount() { }
+    public onUnmount() { }
     public abstract render(): VirtualElement;
 
     public internalRender(props: TProps, children: VirtualElement[]): VirtualElement
@@ -107,14 +99,59 @@ export abstract class VDomComponent<TProps extends Props = Props>
 
 //// Internal Constants
 
-const Intrinsic: 1 = 1;
-const Functional: 2 = 2;
-const Class: 3 = 3;
-const Text: 4 = 4;
-
 const vdomData: VDomDataStore = { }
 
-function addAttributes(htmlElement: HTMLElement, props: Props)
+const createChildKey = (child: VirtualElement, parentKey: string, index: number) =>
+{
+    if (!isTextNode(child))
+    {
+        const childKey = child.props?.key;
+        if (childKey != undefined)
+        {
+            return `${parentKey}_${childKey}`;
+        }
+    }
+    return `${parentKey}_${index}`;
+}
+
+const createComplexKey = (parentKey: string) =>
+{
+    return `${parentKey}_C`;
+}
+
+const attributeIsEventListener = (attribute: string, value?: string | EventListener): value is EventListener =>
+{
+    return attribute.startsWith('on') && typeof(value) === 'function';
+}
+
+const isIntrinsicNode = (vNode: VirtualElement): vNode is VirtualIntrinsicElement =>
+{
+    return !!(vNode as VirtualIntrinsicElement).intrinsicType;
+}
+
+const isClassNode = (vNode: VirtualElement): vNode is VirtualClassElement =>
+{
+    return !!(vNode as VirtualClassElement).ctor;
+}
+
+const isTextNode = (vNode: VirtualElement): vNode is VirtualTextElement =>
+{
+    return !!(vNode as VirtualTextElement).textValues;
+}
+
+const isFunctionalNode = (vNode: VirtualElement): vNode is VirtualFunctionalElement =>
+{
+    return !!(vNode as VirtualFunctionalElement).renderNode;
+}
+
+const removeHtmlNode = (htmlElement?: Node) =>
+{
+    if (!htmlElement) return;
+
+    htmlElement.parentElement?.removeChild(htmlElement);
+}
+
+const addAttributes = (htmlElement: HTMLElement, props: Props) =>
 {
     for (const prop in props)
     {
@@ -124,9 +161,14 @@ function addAttributes(htmlElement: HTMLElement, props: Props)
 
 function addAttribute(htmlElement: HTMLElement, attribute: string, value: string | EventListener)
 {
+    if (attribute === 'key')
+    {
+        return;
+    }
+
     // Check if the string starts with the letters 'on'.
     // Note this function is not available in Internet Explorer.
-    if (attribute.startsWith('on') && typeof(value) === 'function')
+    if (attributeIsEventListener(attribute, value))
     {
         // Chop off the first two characters and use the rest as the event listener type.
         // Note: This is *not* the correct way to do this.
@@ -134,6 +176,10 @@ function addAttribute(htmlElement: HTMLElement, attribute: string, value: string
         // Also we're not checking if the value is actually a function.
         // For now to get a working example UI we'll go with it.
         htmlElement.addEventListener(attribute.substr(2), value);
+    }
+    else if (attribute === 'value' || attribute === 'selected' || attribute === 'checked')
+    {
+        (htmlElement as any)[attribute] = value;
     }
     else
     {
@@ -146,7 +192,7 @@ function removeAttribute(htmlElement: HTMLElement, attribute: string, listener?:
 {
     // Check if the string starts with the letters 'on'.
     // Note this function is not available in Internet Explorer.
-    if (attribute.startsWith('on') && typeof(listener) === 'function')
+    if (attributeIsEventListener(attribute, listener))
     {
         htmlElement.removeEventListener(attribute.substr(2), listener);
     }
@@ -196,13 +242,6 @@ function applyAttributes(htmlElement: HTMLElement, currentProps: Props, newProps
     }
 }
 
-function removeHtmlNode(htmlElement?: Node)
-{
-    if (!htmlElement) return;
-
-    htmlElement.parentElement?.removeChild(htmlElement);
-}
-
 function deleteVDomDataRecursive(vdomNode: VDomData, key: string)
 {
     if (!vdomNode)
@@ -210,7 +249,7 @@ function deleteVDomDataRecursive(vdomNode: VDomData, key: string)
         return;
     }
 
-    if (vdomNode.vNode.type === Intrinsic)
+    if (isIntrinsicNode(vdomNode.vNode))
     {
         const children = vdomNode.vNode.children;
         for (let i = 0; i < children.length; i++)
@@ -220,41 +259,23 @@ function deleteVDomDataRecursive(vdomNode: VDomData, key: string)
             deleteVDomDataRecursive(childVDom, childKey);
         }
     }
-    else if (vdomNode.vNode.type === Functional)
+    else if (isFunctionalNode(vdomNode.vNode))
     {
         const functionalChildKey = createComplexKey(key);
         const functionalChildVDom = vdomData[functionalChildKey];
         deleteVDomDataRecursive(functionalChildVDom, functionalChildKey);
     }
-    else if (vdomNode.vNode.type === Class)
+    else if (isClassNode(vdomNode.vNode))
     {
         const classChildKey = createComplexKey(key);
         const classChildVDom = vdomData[classChildKey];
         deleteVDomDataRecursive(classChildVDom, classChildKey);
 
-        vdomNode.classInstance?.componentWillUnmount();
+        vdomNode.classInstance?.onUnmount();
     }
 
     removeHtmlNode(vdomNode.domNode);
     delete vdomData[key];
-}
-
-function createChildKey(child: VirtualElement, parentKey: string, index: number)
-{
-    if (child.type !== Text)
-    {
-        const childKey = child.props?.key;
-        if (childKey != undefined)
-        {
-            return `${parentKey}_${childKey}`;
-        }
-    }
-    return `${parentKey}_${index}`;
-}
-
-function createComplexKey(parentKey: string)
-{
-    return `${parentKey}_C`;
 }
 
 function hasVElementChanged(oldNode: VirtualElement, newNode: VirtualElement)
@@ -264,34 +285,33 @@ function hasVElementChanged(oldNode: VirtualElement, newNode: VirtualElement)
         return false;
     }
 
-    if (oldNode.type !== newNode.type)
+    if (isFunctionalNode(oldNode))
     {
-        return true;
+        return oldNode.renderNode !== (newNode as VirtualFunctionalElement).renderNode;
     }
-
-    if (oldNode.type === Functional)
-    {
-        return oldNode.render !== (newNode as VirtualFunctionalElement).render;
-    }
-    if (oldNode.type === Class)
+    if (isClassNode(oldNode))
     {
         return oldNode.ctor !== (newNode as VirtualClassElement).ctor;
     }
+    if (isIntrinsicNode(oldNode))
+    {
+        return oldNode.intrinsicType !== (newNode as VirtualIntrinsicElement).intrinsicType;
+    }
 
-    return (oldNode as VirtualIntrinsicElement).nodeType !== (newNode as VirtualIntrinsicElement).nodeType;
+    return false;
 }
 
-function createTextNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualTextElement, key: string)
+function createTextNode(currentVDom: VDomData | undefined, parentNode: Node, vNode: VirtualTextElement, key: string)
 {
-    if (!currentVDom || currentVDom.vNode.type !== vNode.type)
+    if (!currentVDom)
     {
-        const domNode = document.createTextNode(vNode.text);
+        const domNode = document.createTextNode(vNode.textValues);
         parentNode.appendChild(domNode);
         vdomData[key] = { domNode, vNode }
     }
-    else if ((currentVDom.vNode as VirtualTextElement).text !== vNode.text)
+    else if ((currentVDom.vNode as VirtualTextElement).textValues !== vNode.textValues)
     {
-        (currentVDom.domNode as Node).nodeValue = vNode.text;
+        (currentVDom.domNode as Node).nodeValue = vNode.textValues;
         vdomData[key] = { domNode: currentVDom.domNode, vNode }
     }
 }
@@ -299,7 +319,7 @@ function createTextNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualT
 function createFunctionalNode(parentNode: Node, vNode: VirtualFunctionalElement, key: string)
 {
     const functionalChildKey = createComplexKey(key);
-    create(parentNode, vNode.render(vNode.props, vNode.children), functionalChildKey);
+    create(parentNode, vNode.renderNode(vNode.props, vNode.children), functionalChildKey);
     vdomData[key] = { vNode }
 }
 
@@ -322,23 +342,23 @@ function createClassNode(currentVDom: VDomData, parentNode: Node, vNode: Virtual
 
     if (isNew)
     {
-        inst.componentDidMount();
+        inst.onMount();
     }
 }
 
 function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualIntrinsicElement, key: string)
 {
     const currentIntrinsicVNode = currentVDom?.vNode as VirtualIntrinsicElement;
-    const previousChildren = currentIntrinsicVNode?.children || [];
+    const previousChildren = currentIntrinsicVNode?.children;
     let domNode = currentVDom?.domNode;
 
-    if (!currentVDom || currentIntrinsicVNode.nodeType !== vNode.nodeType)
+    if (!currentVDom || currentIntrinsicVNode.intrinsicType !== vNode.intrinsicType)
     {
         if (currentVDom)
         {
             removeHtmlNode(currentVDom.domNode);
         }
-        domNode = document.createElement(vNode.nodeType);
+        domNode = document.createElement(vNode.intrinsicType);
         parentNode.appendChild(domNode);
         addAttributes(domNode as HTMLElement, vNode.props);
     }
@@ -351,12 +371,15 @@ function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: Vir
     const keysToRemove: { [key: string]: VirtualElement } = {};
     const previousVNodes: VDomData[] = [];
 
-    for (let i = 0; i < previousChildren.length; i++)
+    if (previousChildren)
     {
-        const child = previousChildren[i];
-        const childKey = createChildKey(child, key, i);
-        keysToRemove[childKey] = child;
-        previousVNodes[i] = vdomData[childKey];
+        for (let i = 0; i < previousChildren.length; i++)
+        {
+            const child = previousChildren[i];
+            const childKey = createChildKey(child, key, i);
+            keysToRemove[childKey] = child;
+            previousVNodes[i] = vdomData[childKey];
+        }
     }
 
     const domNodeChildren = domNode?.childNodes as NodeListOf<ChildNode>;
@@ -367,7 +390,7 @@ function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: Vir
         create(domNode as Node, child, childKey);
         delete keysToRemove[childKey];
 
-        const newVDom = child.type === Functional || child.type === Class ?
+        const newVDom = isFunctionalNode(child) || isClassNode(child) ?
             vdomData[createComplexKey(childKey)] :
             vdomData[childKey];
 
@@ -387,28 +410,28 @@ function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: Vir
 // Takes a virtual node and turns it into a DOM node.
 function create(parentNode: Node, vNode: VirtualElement, key: string)
 {
-    if (vNode.type === Functional)
+    if (isFunctionalNode(vNode))
     {
         createFunctionalNode(parentNode, vNode, key);
         return;
     }
 
-    const currentVDom = vdomData[key] || null;
+    const currentVDom = vdomData[key];
 
     if (hasVElementChanged(currentVDom?.vNode, vNode))
     {
         deleteVDomDataRecursive(currentVDom, key);
     }
 
-    if (vNode.type === Text)
+    if (isTextNode(vNode))
     {
         createTextNode(currentVDom, parentNode, vNode, key);
     }
-    else if (vNode.type === Class)
+    else if (isClassNode(vNode))
     {
         createClassNode(currentVDom, parentNode, vNode, key);
     }
-    else if (vNode.type === Intrinsic)
+    else if (isIntrinsicNode(vNode))
     {
         createIntrinsicNode(currentVDom, parentNode, vNode, key);
     }
@@ -425,7 +448,7 @@ function processNode(input: VirtualNode): VirtualElement
         return input as VirtualElement;
     }
 
-    return { text: input.toString(), type: Text }
+    return { textValues: input.toString() }
 }
 
 function shallowEqual(objA: any, objB: any)
@@ -479,12 +502,12 @@ export function vdom(type: VirtualNodeType, props: Props, ...children: VirtualNo
 
     if (typeof(type) === 'string')
     {
-        return { nodeType: type, props, children: flatten, type: Intrinsic }
+        return { intrinsicType: type, props, children: flatten }
     }
     if (type.prototype instanceof VDomComponent)
     {
-        return { ctor: type as VDomComponentConstructor, children: flatten, type: Class, props }
+        return { ctor: type as VDomComponentConstructor, children: flatten, props }
     }
 
-    return { render: type as RenderNode, props, children: flatten, type: Functional };
+    return { renderNode: type as RenderNode, props, children: flatten };
 }

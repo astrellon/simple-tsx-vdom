@@ -9,10 +9,10 @@ interface Props
 
 export class MouseRenderClass extends VDomComponent<Props>
 {
-    componentDidMount() {
+    onMount() {
         window.addEventListener('mousemove', this.onMouseMove)
     }
-    componentWillUnmount() {
+    onUnmount() {
         window.removeEventListener('mousemove', this.onMouseMove)
     }
 

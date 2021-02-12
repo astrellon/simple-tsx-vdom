@@ -12,6 +12,7 @@ export interface State
     readonly todoItems: TodoItem[];
     readonly nextItemId: number;
     readonly name: string;
+    readonly checked: boolean;
     readonly mouseX: number;
     readonly mouseY: number;
 }
@@ -22,6 +23,7 @@ const defaultState: State =
     todoItems: [],
     nextItemId: 0,
     name: 'Alan',
+    checked: false,
     mouseX: 0,
     mouseY: 0
 };
@@ -147,6 +149,17 @@ export function changeName(name: string): Modifier<State>
         return {
             ...state,
             name
+        }
+    }
+}
+
+export function setChecked(checked: boolean): Modifier<State>
+{
+    return (state: State) =>
+    {
+        return {
+            ...state,
+            checked
         }
     }
 }

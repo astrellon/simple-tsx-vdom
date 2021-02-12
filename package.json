@@ -4,7 +4,7 @@
   "description": "A simple virtual DOM, not made for performance but for learning",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc && cp src/jsx.d.ts dist/jsx.d.ts && terser -c -m toplevel,reserved=['vdom','render'] --mangle-props regex=/domNode\\|classInstance\\|type\\|vNode\\|ctor\\|parentElement\\|internalRender\\|nodeType\\|nodeValue\\|attribute\\|value/ -o dist/index.min.js --source-map filename=dist/input.js.map dist/index.js",
+    "build": "tsc && cp src/jsx.d.ts dist/jsx.d.ts && terser -c -m toplevel,reserved=['vdom','render'] --mangle-props regex=/domNode\\|classInstance\\|type\\|vNode\\|ctor\\|parentElement\\|internalRender\\|nodeType\\|nodeValue\\|attribute\\|value\\|intrinsicType\\|textValue\\|renderNode\\|vdomKey/ -o dist/index.min.js --source-map filename=dist/input.js.map dist/index.js",
     "test": "jest"
   },
   "author": "Alan Lawrey",

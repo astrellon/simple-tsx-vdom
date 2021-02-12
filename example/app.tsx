@@ -1,8 +1,9 @@
 import { vdom, VDomComponent } from "../src";
-import { State, todoAppStore, addTodoItem, changeName, setMousePosition } from "./todoAppStore";
+import { State, todoAppStore, addTodoItem, changeName, setMousePosition, setChecked } from "./todoAppStore";
 import { TodoItemList } from "./todoItemList";
 import { MouseRenderClass } from './mouseRender';
 import { MouseRenderClassState } from './mouseRenderState';
+import { Store } from "./store";
 
 function addItem()
 {
@@ -15,32 +16,22 @@ function addItem()
 
 interface Props
 {
-    readonly nameField: string;
+    readonly checked: boolean;
 }
 class TestComp extends VDomComponent<Props>
 {
-    public componentDidMount()
-    {
-        console.log('TestComp Mount');
-    }
-
-    public componentWillUnmount()
-    {
-        console.log('TestComp Unmount');
-    }
-
     public render()
     {
         return <div>
-            <strong>Name: </strong> {this.props.nameField}
-            <button onclick={this.changeName}>Change Name</button>
+            <strong>Name: </strong> <input type='checkbox' checked={this.props.checked} onchange={this.onChanged} />
         </div>
     }
 
-    private changeName = () =>
+    private onChanged = (e: Event) =>
     {
-        const newName = prompt('Change name from: ' + this.props.nameField);
-        todoAppStore.execute(changeName(newName));
+        const checked = (e.target as HTMLInputElement).checked;
+        console.log('Changed', checked);
+        todoAppStore.execute(setChecked(checked));
     }
 }
 
@@ -66,7 +57,8 @@ export function App(props: {state: State})
         </div>
         { state.todoItems.length < 5 &&
         <p>
-            <TestComp nameField={state.name} />
+            <TestComp checked={state.checked} />
+            <TestComp checked={state.checked} />
         </p> }
         <p>
             <TodoItemList items={state.todoItems} />

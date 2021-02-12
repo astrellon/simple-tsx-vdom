@@ -9,10 +9,10 @@ export class MouseRenderClassState extends VDomComponent<Props>
     x = 0;
     y = 0;
 
-    componentDidMount() {
+    onMount() {
         window.addEventListener('mousemove', this.onMouseMove)
     }
-    componentWillUnmount() {
+    onUnmount() {
         window.removeEventListener('mousemove', this.onMouseMove)
     }
 

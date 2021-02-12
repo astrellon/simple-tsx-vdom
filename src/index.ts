@@ -81,6 +81,7 @@ export abstract class VDomComponent<TProps extends Props = Props>
 {
     public props: TProps = ({} as any);
     public children: VirtualElement[] = [];
+    public vdomKey: string = '';
 
     public componentDidMount() { }
     public componentWillUnmount() { }
@@ -92,6 +93,15 @@ export abstract class VDomComponent<TProps extends Props = Props>
         this.children = children;
 
         return this.render();
+    }
+
+    public forceUpdate()
+    {
+        const vdomNode = vdomData[this.vdomKey];
+        if (vdomNode && vdomNode.domNode?.parentElement)
+        {
+            create(vdomNode.domNode?.parentElement, this.render(), this.vdomKey);
+        }
     }
 }
 
@@ -300,15 +310,14 @@ function createClassNode(currentVDom: VDomData, parentNode: Node, vNode: Virtual
         return;
     }
 
-    const classChildKey = createComplexKey(key);
-
     let inst = currentVDom?.classInstance;
     const isNew = !inst;
     if (!inst)
     {
         inst = new vNode.ctor();
+        inst.vdomKey = createComplexKey(key);
     }
-    create(parentNode, inst.internalRender(vNode.props, vNode.children), classChildKey);
+    create(parentNode, inst.internalRender(vNode.props, vNode.children), inst.vdomKey);
     vdomData[key] = { vNode, classInstance: inst }
 
     if (isNew)

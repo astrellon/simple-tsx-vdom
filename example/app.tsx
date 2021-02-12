@@ -2,6 +2,7 @@ import { vdom, VDomComponent } from "../src";
 import { State, todoAppStore, addTodoItem, changeName, setMousePosition } from "./todoAppStore";
 import { TodoItemList } from "./todoItemList";
 import { MouseRenderClass } from './mouseRender';
+import { MouseRenderClassState } from './mouseRenderState';
 
 function addItem()
 {
@@ -58,7 +59,10 @@ export function App(props: {state: State})
             <button onclick={addItem}>Add Item</button>
         </p>
         <div>
-            <MouseRenderClass x={state.mouseX} y={state.mouseY} onUpdate={onUpdateMouse} />
+            {/* <MouseRenderClass x={state.mouseX} y={state.mouseY} onUpdate={onUpdateMouse} /> */}
+        </div>
+        <div>
+            <MouseRenderClassState />
         </div>
         { state.todoItems.length < 5 &&
         <p>

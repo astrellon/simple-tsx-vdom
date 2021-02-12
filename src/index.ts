@@ -100,6 +100,7 @@ export abstract class VDomComponent<TProps extends Props = Props>
 //// Internal Constants
 
 const vdomData: VDomDataStore = { }
+let rootCounter: number = 0;
 
 const createChildKey = (child: VirtualElement, parentKey: string, index: number) =>
 {
@@ -487,7 +488,13 @@ function shallowEqual(objA: any, objB: any)
 // This will clear the parent node of all its children.
 export function render(virtualNode: VirtualElement, parent: HTMLElement)
 {
-    create(parent, virtualNode, '_root');
+    let rootKey = parent.getAttribute('data-vdom-key');
+    if (!rootKey)
+    {
+        rootKey = `_R${++rootCounter}`;
+        parent.setAttribute('data-vdom-key', rootKey);
+    }
+    create(parent, virtualNode, rootKey);
 }
 
 // Helper function for creating virtual DOM object.

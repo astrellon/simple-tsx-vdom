@@ -101,6 +101,7 @@ export abstract class VDomComponent<TProps extends Props = Props>
 
 const vdomData: VDomDataStore = { }
 let rootCounter: number = 0;
+let nsStack: string[] = [];
 
 const createChildKey = (child: VirtualElement, parentKey: string, index: number) =>
 {
@@ -353,13 +354,28 @@ function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: Vir
     const previousChildren = currentIntrinsicVNode?.children;
     let domNode = currentVDom?.domNode;
 
+    const newXmlNs = vNode.props.xmlns;
+    if (newXmlNs)
+    {
+        nsStack.push(newXmlNs);
+    }
+
     if (!currentVDom || currentIntrinsicVNode.intrinsicType !== vNode.intrinsicType)
     {
         if (currentVDom)
         {
             removeHtmlNode(currentVDom.domNode);
         }
-        domNode = document.createElement(vNode.intrinsicType);
+
+        const stackXmlNs = nsStack[nsStack.length - 1];
+        if (stackXmlNs)
+        {
+            domNode = document.createElementNS(stackXmlNs, vNode.intrinsicType);
+        }
+        else
+        {
+            domNode = document.createElement(vNode.intrinsicType);
+        }
         parentNode.appendChild(domNode);
         addAttributes(domNode as HTMLElement, vNode.props);
     }
@@ -405,6 +421,11 @@ function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: Vir
     {
         const childVDom = vdomData[childKey];
         deleteVDomDataRecursive(childVDom, childKey);
+    }
+
+    if (newXmlNs)
+    {
+        nsStack.pop();
     }
 }
 
@@ -488,6 +509,7 @@ function shallowEqual(objA: any, objB: any)
 // This will clear the parent node of all its children.
 export function render(virtualNode: VirtualElement, parent: HTMLElement)
 {
+    nsStack = [];
     let rootKey = parent.getAttribute('data-vdom-key');
     if (!rootKey)
     {

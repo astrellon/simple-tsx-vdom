@@ -1,0 +1,28 @@
+.pill-button {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    padding: 0.5rem 1rem;
+
+    background: rgba(0, 0, 0, 0.15);
+
+    transition: background 0.25s cubic-bezier(.215,.61,.355,1);
+
+    border-radius: 0.5rem;
+    cursor: pointer;
+
+    &:hover {
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    .icon + &__label,
+    &__label + .icon {
+        margin-left: 0.4rem;
+    }
+
+    :focus, :active {
+        outline: none;
+    }
+}

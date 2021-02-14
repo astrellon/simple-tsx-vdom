@@ -1,0 +1,16 @@
+{
+  "name": "simple-vdom-counter-example",
+  "version": "1.0.0",
+  "description": "A simple counter example for Simple VDom",
+  "main": "index.js",
+  "scripts": {
+    "start": "parcel --no-cache --no-hmr ./index.html",
+    "build": "parcel build -d deploy/ ./index.html"
+  },
+  "author": "Alan Lawrey",
+  "license": "MIT",
+  "devDependencies": {
+    "parcel-bundler": "^1.12.4",
+    "typescript": "^4.1.5"
+  }
+}

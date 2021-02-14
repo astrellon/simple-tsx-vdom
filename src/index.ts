@@ -65,8 +65,8 @@ export interface Props
 }
 
 // A virtual node is either and element above or plain text.
-export type VirtualNode = VirtualElement | string | number | boolean;
-export type RenderNode<TProps extends Props = Props> = (props: TProps, children: VirtualElement[]) => VirtualElement;
+export type VirtualNode = VirtualElement[] | VirtualElement | string | number | boolean;
+export type RenderNode<TProps extends Props = Props | any> = (props: TProps, children: VirtualElement[]) => VirtualElement;
 export type VirtualNodeType = string | RenderNode | VDomComponentConstructor;
 
 export abstract class VDomComponent<TProps extends Props = Props>
@@ -261,19 +261,16 @@ function deleteVDomDataRecursive(vdomNode: VDomData, key: string)
             deleteVDomDataRecursive(childVDom, childKey);
         }
     }
-    else if (isFunctionalNode(vdomNode.vNode))
+    else if (isFunctionalNode(vdomNode.vNode) || isClassNode(vdomNode.vNode))
     {
         const functionalChildKey = createComplexKey(key);
         const functionalChildVDom = vdomData[functionalChildKey];
         deleteVDomDataRecursive(functionalChildVDom, functionalChildKey);
-    }
-    else if (isClassNode(vdomNode.vNode))
-    {
-        const classChildKey = createComplexKey(key);
-        const classChildVDom = vdomData[classChildKey];
-        deleteVDomDataRecursive(classChildVDom, classChildKey);
 
-        vdomNode.classInstance?.onUnmount();
+        if (isClassNode(vdomNode.vNode))
+        {
+            vdomNode.classInstance?.onUnmount();
+        }
     }
 
     removeHtmlNode(vdomNode.domNode);
@@ -520,7 +517,7 @@ export function render(virtualNode: VirtualElement, parent: HTMLElement)
 }
 
 // Helper function for creating virtual DOM object.
-export function vdom(type: VirtualNodeType, props: Props, ...children: VirtualNode[]): VirtualElement
+export function vdom(type: VirtualNodeType, props: any, ...children: VirtualNode[]): VirtualElement
 {
     // Handle getting back an array of children. Eg: [[item1, item2]] instead of just [item1, item2].
     const flatten = !!children ? children.flat(Infinity)

@@ -35,14 +35,9 @@ interface VirtualTextElement
 
 //// Internal Diffing Types
 
-interface AttributeDiff
+interface ObjectDiff
 {
-    readonly attribute: string;
-    readonly value: any;
-}
-interface AttributeDiffs
-{
-    [key: string]: AttributeDiff;
+    [key: string]: any;
 }
 
 interface VDomData
@@ -123,7 +118,7 @@ const createComplexKey = (parentKey: string) =>
     return `${parentKey}_C`;
 }
 
-const attributeIsEventListener = (attribute: string, value?: string | EventListener): value is EventListener =>
+const attributeIsEventListener = (attribute: string, value?: string | EventListener | CSSStyleDeclaration): value is EventListener =>
 {
     return attribute.startsWith('on') && typeof(value) === 'function';
 }
@@ -155,17 +150,10 @@ const removeHtmlNode = (htmlElement?: Node) =>
     htmlElement.parentElement?.removeChild(htmlElement);
 }
 
-const addAttributes = (htmlElement: HTMLElement, props: Props) =>
+function setAttribute(htmlElement: HTMLElement, attribute: string, value: string | EventListener)
 {
-    for (const prop in props)
-    {
-        addAttribute(htmlElement, prop, props[prop]);
-    }
-}
-
-function addAttribute(htmlElement: HTMLElement, attribute: string, value: string | EventListener)
-{
-    if (attribute === 'key')
+    // We'll handle style somewhere else
+    if (attribute === 'key' || attribute === 'style')
     {
         return;
     }
@@ -206,43 +194,53 @@ function removeAttribute(htmlElement: HTMLElement, attribute: string, listener?:
     }
 }
 
+function diffProps(currentProps: Props, newProps: Props)
+{
+    const remove: ObjectDiff = Object.assign({}, currentProps);
+    const add: ObjectDiff = {};
+
+    for (const prop in (newProps || {}))
+    {
+        const currentValue = remove[prop];
+        const newValue = newProps[prop];
+        if (currentValue != undefined && currentValue === newValue)
+        {
+            delete remove[prop];
+        }
+        else
+        {
+            add[prop] = newValue;
+        }
+    }
+
+    return { remove, add }
+}
+
 function applyAttributes(htmlElement: HTMLElement, currentProps: Props, newProps: Props)
 {
-    const removeAttrs: AttributeDiffs = {};
-    const addAttrs: AttributeDiffs = {};
+    const { remove, add } = diffProps(currentProps, newProps);
 
-    for (const prop in currentProps)
+    for (const prop in remove)
     {
-        const currentProp = currentProps[prop];
-        removeAttrs[prop] = {
-            attribute: prop,
-            value: currentProp
-        }
+        removeAttribute(htmlElement, prop, remove[prop]);
     }
-
-    for (const prop in newProps)
+    for (const prop in add)
     {
-        const currentAttr = removeAttrs[prop];
-        const newProp = newProps[prop];
-        if (currentAttr && currentAttr.value === newProp)
-        {
-            delete removeAttrs[prop];
-            continue;
-        }
-
-        addAttrs[prop] = {
-            attribute: prop,
-            value: newProp
-        }
+        setAttribute(htmlElement, prop, add[prop]);
     }
+}
 
-    for (const prop in removeAttrs)
+function applyStyle(htmlElement: HTMLElement, currentStyle: CSSStyleDeclaration, newStyle: CSSStyleDeclaration)
+{
+    const { remove, add } = diffProps(currentStyle, newStyle);
+
+    for (const prop in remove)
     {
-        removeAttribute(htmlElement, prop, removeAttrs[prop].value);
+        (htmlElement.style as any)[prop] = undefined;
     }
-    for (const prop in addAttrs)
+    for (const prop in add)
     {
-        addAttribute(htmlElement, prop, addAttrs[prop].value);
+        (htmlElement.style as any)[prop] = add[prop];
     }
 }
 
@@ -429,14 +427,8 @@ function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: Vir
     }
 
     // Add or apply attributes after children are created for select element.
-    if (newNode)
-    {
-        addAttributes(domNode as HTMLElement, vNode.props);
-    }
-    else
-    {
-        applyAttributes(currentVDom.domNode as HTMLElement, currentIntrinsicVNode.props, vNode.props);
-    }
+    applyAttributes(domNode as HTMLElement, currentIntrinsicVNode?.props, vNode.props);
+    applyStyle(domNode as HTMLElement, currentIntrinsicVNode?.props.style, vNode.props.style);
 
     if (newXmlNs)
     {
@@ -530,7 +522,7 @@ export function vdom(type: VirtualNodeType, props: any | undefined = undefined, 
 {
     // Handle getting back an array of children. Eg: [[item1, item2]] instead of just [item1, item2].
     const flatten = children.flat(Infinity)
-        .filter(child => child != undefined)
+        .filter(child => child != undefined && child !== false)
         .map(processNode);
 
     props = props || {};

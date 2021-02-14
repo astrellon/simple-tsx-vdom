@@ -1,6 +1,6 @@
 import { vdom, render, ClassComponent, VirtualElement, Props } from ".";
 
-test('basic test', () =>
+test('basic', () =>
 {
     document.body.innerHTML = '<main id="root"></main>';
     const rootEl = document.getElementById('root');
@@ -48,6 +48,67 @@ test('basic test', () =>
 
     expect(divEl.innerHTML).toBe('Here is a number 0');
 
+});
+
+test('styles', () =>
+{
+    document.body.innerHTML = '<main id="root"></main>';
+    const rootEl = document.getElementById('root');
+    const vdom1 = vdom('main', {} ,
+        vdom('div', {id: 'div1', style: {backgroundColor: 'red'}}, 'Hello'),
+        vdom('div', {id: 'div2', style: {margin: '5px'}}, 'Whats up?')
+    );
+
+    if (rootEl == null) { fail('Root element not created!'); }
+
+    render(vdom1, rootEl);
+
+    const div1El = document.getElementById('div1');
+    const div2El = document.getElementById('div2');
+
+    if (div1El == null) { fail('Div 1 element not created!'); }
+    if (div2El == null) { fail('Div 2 element not created!'); }
+
+    expect(div1El.innerHTML).toBe('Hello');
+    expect(div2El.innerHTML).toBe('Whats up?');
+
+    expect(div1El.style.backgroundColor).toBe('red');
+    expect(div2El.style.backgroundColor).toBe('');
+
+    expect(div1El.style.margin).toBe('');
+    expect(div2El.style.margin).toBe('5px');
+
+    const vdom2 = vdom('main', {} ,
+        vdom('div', {id: 'div1', style: {backgroundColor: 'green', margin: '7px'}}, 'Hello'),
+        vdom('div', {id: 'div2', style: {}}, 'Whats up?')
+    );
+
+    render(vdom2, rootEl);
+
+    expect(div1El.style.backgroundColor).toBe('green');
+    expect(div2El.style.backgroundColor).toBe('');
+
+    expect(div1El.style.margin).toBe('7px');
+    expect(div2El.style.margin).toBe('');
+
+    const vdom3 = vdom('main', {} ,
+        vdom('div', {id: 'div1', style: {padding: '7px'}}, 'Hello'),
+        vdom('div', {id: 'div2', style: {position: 'absolute'}}, 'Whats up?')
+    );
+
+    render(vdom3, rootEl);
+
+    expect(div1El.style.backgroundColor).toBe('');
+    expect(div2El.style.backgroundColor).toBe('');
+
+    expect(div1El.style.margin).toBe('');
+    expect(div2El.style.margin).toBe('');
+
+    expect(div1El.style.padding).toBe('7px');
+    expect(div2El.style.padding).toBe('');
+
+    expect(div1El.style.position).toBe('');
+    expect(div2El.style.position).toBe('absolute');
 });
 
 test('test class component with key', () =>

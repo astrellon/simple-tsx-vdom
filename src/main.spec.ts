@@ -31,14 +31,23 @@ test('basic test', () =>
 
     const vdom2 = vdom('main', {id: 'mainId', key: 'main'},
         vdom('h1', {id: 'headerId'}, 'Hello there'),
-        vdom('p', {id: 'paragraphId'}, 'Whats is up?')
+        vdom('p', {id: 'paragraphId'}, 'Whats is up?'),
+        vdom('div', {id: 'divId'}, 'Here is a number ', 0)
     );
 
     render(vdom2, rootEl);
 
+    expect(mainEl.children.length).toBe(3);
+
     expect(headerEl.innerHTML).toBe('Hello there');
     expect(paragraphEl.innerHTML).toBe('Whats is up?');
     expect(paragraphEl.classList.contains('paragraph-class')).toBeFalsy();
+
+    const divEl = document.getElementById('divId');
+    if (divEl == null) { fail('Div element not created!'); }
+
+    expect(divEl.innerHTML).toBe('Here is a number 0');
+
 });
 
 test('test class component with key', () =>
@@ -819,4 +828,4 @@ test('test uncreated component', () =>
 
     const node = new TestNode();
     node.forceUpdate();
-})
+});

@@ -481,6 +481,7 @@ function processNode(input: VirtualNode): VirtualElement
     return { textValue: input.toString() }
 }
 
+// This is only intended for internal use where the values that are given are never null!
 function shallowEqual(objA: any, objB: any)
 {
     if (objA === objB)
@@ -527,7 +528,7 @@ export function vdom(type: VirtualNodeType, props: any | undefined = undefined, 
 {
     // Handle getting back an array of children. Eg: [[item1, item2]] instead of just [item1, item2].
     const flatten = children.flat(Infinity)
-        .filter(child => !!child)
+        .filter(child => child != undefined)
         .map(processNode);
 
     props = props || {};

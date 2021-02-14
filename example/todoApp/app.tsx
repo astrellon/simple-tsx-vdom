@@ -1,4 +1,4 @@
-import { vdom, VDomComponent } from "../src";
+import { vdom, VDomComponent } from "../../src";
 import { State, todoAppStore, addTodoItem, changeName, setMousePosition, setChecked } from "./todoAppStore";
 import { TodoItemList } from "./todoItemList";
 import { MouseRenderClass } from './mouseRender';

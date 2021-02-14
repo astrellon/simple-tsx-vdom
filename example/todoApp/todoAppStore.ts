@@ -1,4 +1,4 @@
-import { Store, Modifier } from "./todoApp/store";
+import { Store, Modifier } from "./store";
 
 // Definition of types for state management.
 export interface TodoItem

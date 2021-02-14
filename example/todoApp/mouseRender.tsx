@@ -1,4 +1,4 @@
-import { vdom, VDomComponent } from "../src";
+import { vdom, VDomComponent } from "../../src";
 
 interface Props
 {

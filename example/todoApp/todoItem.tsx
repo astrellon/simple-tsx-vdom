@@ -1,7 +1,7 @@
-import { vdom, VDomComponent } from "../src";
-import { todoAppStore, removeTodoItem, TodoItem, moveUpItem, moveDownItem } from "./todoApp/todoAppStore";
+import { vdom, VDomComponent } from "../../src";
+import { todoAppStore, removeTodoItem, TodoItem, moveUpItem, moveDownItem } from "./todoAppStore";
 import PillButton from "./pillButton";
-import { ButtonGroup } from "./todoApp/buttonGroup";
+import { ButtonGroup } from "./buttonGroup";
 
 interface Props
 {

@@ -5,5 +5,5 @@
         "jsxFactory": "vdom",
         "jsx": "react"
     },
-    "files": ["index.tsx"]
+    "files": ["todoApp/index.tsx"]
 }

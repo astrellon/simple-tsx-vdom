@@ -1,4 +1,4 @@
-import { vdom, RenderNode } from '../src';
+import { vdom, RenderNode } from '../../src';
 import './buttonGroup.scss';
 
 interface Props

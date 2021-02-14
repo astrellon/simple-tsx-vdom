@@ -1,7 +1,7 @@
 import './normalize.css';
 import './styles.scss';
 
-import { vdom, render } from "../src";
+import { vdom, render } from "../../src";
 import { todoAppStore, State } from "./todoAppStore";
 import { App } from "./app";
 

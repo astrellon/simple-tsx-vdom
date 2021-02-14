@@ -5,8 +5,7 @@
   "main": "",
   "scripts": {
     "start": "parcel --no-cache --no-hmr ./index.html",
-    "build": "parcel build -d deploy/ ./index.html",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "parcel build -d deploy/ ./index.html"
   },
   "author": "Alan Lawrey",
   "license": "MIT",

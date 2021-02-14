@@ -1,4 +1,4 @@
-import { vdom, VDomComponent } from '../../src';
+import { vdom, ClassComponent } from '../../src';
 import './pillButton.scss';
 
 interface Props
@@ -10,7 +10,7 @@ interface Props
     readonly light?: boolean;
 }
 
-export default class PillButton extends VDomComponent<Props>
+export default class PillButton extends ClassComponent<Props>
 {
     public render()
     {

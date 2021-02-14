@@ -19,13 +19,13 @@ interface VirtualIntrinsicElement extends IVirtualContainerElement
 
 interface VirtualFunctionalElement extends IVirtualContainerElement
 {
-    readonly renderNode: RenderNode;
+    readonly renderNode: FunctionalComponent;
 }
 
-type VDomComponentConstructor = new () => VDomComponent;
+type ClassComponentConstructor = new () => ClassComponent;
 interface VirtualClassElement extends IVirtualContainerElement
 {
-    readonly ctor: VDomComponentConstructor;
+    readonly ctor: ClassComponentConstructor;
 }
 
 interface VirtualTextElement
@@ -49,12 +49,13 @@ interface VDomData
 {
     readonly domNode?: Node;
     readonly vNode: VirtualElement;
-    readonly classInstance?: VDomComponent;
+    readonly classInstance?: ClassComponent;
 }
 interface VDomDataStore { [vdomKey: string]: VDomData };
 
 //// External Types
 
+// Represents a virtual element of either text, intrinsic, functional or class based.
 export type VirtualElement = VirtualFunctionalElement | VirtualIntrinsicElement | VirtualTextElement | VirtualClassElement;
 
 // Our properties/attributes are just a map of string keys to any value at the moment.
@@ -66,10 +67,11 @@ export interface Props
 
 // A virtual node is either and element above or plain text.
 export type VirtualNode = VirtualElement[] | VirtualElement | string | number | boolean;
-export type RenderNode<TProps extends Props = Props | any> = (props: TProps, children: VirtualElement[]) => VirtualElement;
-export type VirtualNodeType = string | RenderNode | VDomComponentConstructor;
+// Functional component, creates nodes based on the input.
+export type FunctionalComponent<TProps extends Props = Props | any> = (props: TProps, children: VirtualElement[]) => VirtualElement;
+export type VirtualNodeType = string | FunctionalComponent | ClassComponentConstructor;
 
-export abstract class VDomComponent<TProps extends Props = Props>
+export abstract class ClassComponent<TProps extends Props = Props>
 {
     public props: TProps = ({} as any);
     public children: VirtualElement[] = [];
@@ -269,7 +271,7 @@ function deleteVDomDataRecursive(vdomNode: VDomData, key: string)
 
         if (isClassNode(vdomNode.vNode))
         {
-            (vdomNode.classInstance as VDomComponent).onUnmount();
+            (vdomNode.classInstance as ClassComponent).onUnmount();
         }
     }
 
@@ -537,10 +539,10 @@ export function vdom(type: VirtualNodeType, props: any | undefined = undefined, 
     {
         return { intrinsicType: type, props, children: flatten }
     }
-    if (type.prototype instanceof VDomComponent)
+    if (type.prototype instanceof ClassComponent)
     {
-        return { ctor: type as VDomComponentConstructor, children: flatten, props }
+        return { ctor: type as ClassComponentConstructor, children: flatten, props }
     }
 
-    return { renderNode: type as RenderNode, props, children: flatten };
+    return { renderNode: type as FunctionalComponent, props, children: flatten };
 }

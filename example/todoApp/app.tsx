@@ -1,4 +1,4 @@
-import { vdom, VDomComponent } from "../../src";
+import { vdom, ClassComponent } from "../../src";
 import { State, todoAppStore, addTodoItem, changeName, setMousePosition, setChecked } from "./todoAppStore";
 import { TodoItemList } from "./todoItemList";
 import { MouseRenderClass } from './mouseRender';
@@ -18,7 +18,7 @@ interface Props
 {
     readonly checked: boolean;
 }
-class TestComp extends VDomComponent<Props>
+class TestComp extends ClassComponent<Props>
 {
     public render()
     {

@@ -1,4 +1,4 @@
-import { vdom, render, VDomComponent, VirtualElement, Props } from ".";
+import { vdom, render, ClassComponent, VirtualElement, Props } from ".";
 
 test('basic test', () =>
 {
@@ -59,7 +59,7 @@ test('test class component with key', () =>
 
     const createdNodes: TestNode[] = [];
 
-    class TestNode extends VDomComponent<Props>
+    class TestNode extends ClassComponent<Props>
     {
         public renderCount = 0;
         constructor()
@@ -198,7 +198,7 @@ test('test class component without key', () =>
 
     const createdNodes: TestNode[] = [];
 
-    class TestNode extends VDomComponent<Props>
+    class TestNode extends ClassComponent<Props>
     {
         public renderCount = 0;
         constructor()
@@ -335,7 +335,7 @@ test('event handling', () =>
         readonly name: string;
     }
 
-    class TestNode extends VDomComponent<Props>
+    class TestNode extends ClassComponent<Props>
     {
         public render(): VirtualElement
         {
@@ -411,7 +411,7 @@ test('class mounting/unmounting', () =>
 
     const createdNodes: TestNode[] = [];
 
-    class TestNode extends VDomComponent<Props>
+    class TestNode extends ClassComponent<Props>
     {
         public mounted: boolean | undefined = undefined;
 
@@ -483,7 +483,7 @@ test('force updating', () =>
     let compRenderCount = 0;
     let externalState = 'ExternalState';
 
-    class App extends VDomComponent<AppProps>
+    class App extends ClassComponent<AppProps>
     {
         public render(): VirtualElement
         {
@@ -494,7 +494,7 @@ test('force updating', () =>
         }
     }
 
-    class TestComp extends VDomComponent
+    class TestComp extends ClassComponent
     {
         constructor()
         {
@@ -811,7 +811,7 @@ test('test uncreated component', () =>
         readonly name: string;
     }
 
-    class TestNode extends VDomComponent<Props>
+    class TestNode extends ClassComponent<Props>
     {
         constructor()
         {

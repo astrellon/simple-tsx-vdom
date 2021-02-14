@@ -1,4 +1,4 @@
-import { vdom, render, RenderNode } from "../../src";
+import { vdom, render, FunctionalComponent } from "../../src";
 
 // Very basic state management
 interface Store
@@ -19,7 +19,7 @@ interface AppProps
 {
     readonly store: Store;
 }
-const App: RenderNode = (props: AppProps) =>
+const App: FunctionalComponent = (props: AppProps) =>
     <main>
         <h1>Simple VDom Counter Example</h1>
         <div>Counter: {props.store.counter}</div>

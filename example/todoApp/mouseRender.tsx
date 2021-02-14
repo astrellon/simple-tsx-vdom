@@ -1,4 +1,4 @@
-import { vdom, VDomComponent } from "../../src";
+import { vdom, ClassComponent } from "../../src";
 
 interface Props
 {
@@ -7,7 +7,7 @@ interface Props
     readonly onUpdate: (x: number, y: number) => void;
 }
 
-export class MouseRenderClass extends VDomComponent<Props>
+export class MouseRenderClass extends ClassComponent<Props>
 {
     onMount() {
         window.addEventListener('mousemove', this.onMouseMove)

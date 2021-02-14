@@ -1,10 +1,10 @@
-import { vdom, VDomComponent } from "../../src";
+import { vdom, ClassComponent } from "../../src";
 
 interface Props
 {
 }
 
-export class MouseRenderClassState extends VDomComponent<Props>
+export class MouseRenderClassState extends ClassComponent<Props>
 {
     x = 0;
     y = 0;

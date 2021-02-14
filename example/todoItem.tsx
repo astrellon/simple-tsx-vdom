@@ -1,4 +1,4 @@
-import { vdom, VDomComponent } from "../src";
+import { vdom, ClassComponent } from "../src";
 import { todoAppStore, removeTodoItem, TodoItem, moveUpItem, moveDownItem } from "./todoApp/todoAppStore";
 import PillButton from "./pillButton";
 import { ButtonGroup } from "./todoApp/buttonGroup";
@@ -10,7 +10,7 @@ interface Props
     readonly item: TodoItem
 }
 
-export class TodoItemView extends VDomComponent<Props>
+export class TodoItemView extends ClassComponent<Props>
 {
     public render()
     {

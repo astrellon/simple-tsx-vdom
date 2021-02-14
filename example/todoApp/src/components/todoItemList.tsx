@@ -1,5 +1,5 @@
-import { vdom } from "../../src";
-import { TodoItem } from "./todoAppStore";
+import { vdom } from "../../../../src";
+import { TodoItem } from "../todoAppStore";
 import { TodoItemView } from "./todoItem";
 
 export function TodoItemList(props: { items: TodoItem[] })

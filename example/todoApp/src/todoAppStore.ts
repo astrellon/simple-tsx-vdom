@@ -11,10 +11,6 @@ export interface State
 {
     readonly todoItems: TodoItem[];
     readonly nextItemId: number;
-    readonly name: string;
-    readonly checked: boolean;
-    readonly mouseX: number;
-    readonly mouseY: number;
 }
 
 const localStorageKey = 'todoApp';
@@ -22,10 +18,6 @@ const defaultState: State =
 {
     todoItems: [],
     nextItemId: 0,
-    name: 'Alan',
-    checked: false,
-    mouseX: 0,
-    mouseY: 0
 };
 
 let enableLocalStorage = true;
@@ -138,40 +130,6 @@ export function moveDownItem(id: number): Modifier<State>
         return {
             ...state,
             todoItems
-        }
-    }
-}
-
-export function changeName(name: string): Modifier<State>
-{
-    return (state: State) =>
-    {
-        return {
-            ...state,
-            name
-        }
-    }
-}
-
-export function setChecked(checked: boolean): Modifier<State>
-{
-    return (state: State) =>
-    {
-        return {
-            ...state,
-            checked
-        }
-    }
-}
-
-export function setMousePosition(x: number, y: number): Modifier<State>
-{
-    return (state: State) =>
-    {
-        return {
-            ...state,
-            mouseX: x,
-            mouseY: y
         }
     }
 }

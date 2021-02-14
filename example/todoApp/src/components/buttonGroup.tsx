@@ -1,4 +1,4 @@
-import { vdom, FunctionalComponent } from '../../src';
+import { vdom, FunctionalComponent } from '../../../../src';
 import './buttonGroup.scss';
 
 interface Props

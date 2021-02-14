@@ -30,7 +30,7 @@ interface VirtualClassElement extends IVirtualContainerElement
 
 interface VirtualTextElement
 {
-    readonly textValues: string;
+    readonly textValue: string;
 }
 
 //// Internal Diffing Types
@@ -138,7 +138,7 @@ const isClassNode = (vNode: VirtualElement): vNode is VirtualClassElement =>
 
 const isTextNode = (vNode: VirtualElement): vNode is VirtualTextElement =>
 {
-    return !!(vNode as VirtualTextElement).textValues;
+    return !!(vNode as VirtualTextElement).textValue;
 }
 
 const isFunctionalNode = (vNode: VirtualElement): vNode is VirtualFunctionalElement =>
@@ -304,13 +304,13 @@ function createTextNode(currentVDom: VDomData | undefined, parentNode: Node, vNo
 {
     if (!currentVDom)
     {
-        const domNode = document.createTextNode(vNode.textValues);
+        const domNode = document.createTextNode(vNode.textValue);
         parentNode.appendChild(domNode);
         vdomData[key] = { domNode, vNode }
     }
-    else if ((currentVDom.vNode as VirtualTextElement).textValues !== vNode.textValues)
+    else if ((currentVDom.vNode as VirtualTextElement).textValue !== vNode.textValue)
     {
-        (currentVDom.domNode as Node).nodeValue = vNode.textValues;
+        (currentVDom.domNode as Node).nodeValue = vNode.textValue;
         vdomData[key] = { domNode: currentVDom.domNode, vNode }
     }
 }
@@ -460,14 +460,10 @@ function processNode(input: VirtualNode): VirtualElement
 {
     if (typeof(input) === 'object')
     {
-        if (!(input as any).props)
-        {
-            return { ...input, props: {} } as any;
-        }
         return input as VirtualElement;
     }
 
-    return { textValues: input.toString() }
+    return { textValue: input.toString() }
 }
 
 function shallowEqual(objA: any, objB: any)
@@ -517,7 +513,7 @@ export function render(virtualNode: VirtualElement, parent: HTMLElement)
 }
 
 // Helper function for creating virtual DOM object.
-export function vdom(type: VirtualNodeType, props: any, ...children: VirtualNode[]): VirtualElement
+export function vdom(type: VirtualNodeType, props: any | undefined = undefined, ...children: VirtualNode[]): VirtualElement
 {
     // Handle getting back an array of children. Eg: [[item1, item2]] instead of just [item1, item2].
     const flatten = !!children ? children.flat(Infinity)

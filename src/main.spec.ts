@@ -6,7 +6,7 @@ test('basic test', () =>
     const rootEl = document.getElementById('root');
     const vdom1 = vdom('main', {id: 'mainId'},
         vdom('h1', {id: 'headerId'}, 'Hello'),
-        vdom('p', {id: 'paragraphId'}, 'Whats up?')
+        vdom('p', {id: 'paragraphId', class: 'paragraph-class'}, 'Whats up?')
     );
 
     if (rootEl == null) { fail('Root element not created!'); }
@@ -24,6 +24,7 @@ test('basic test', () =>
     expect(mainEl.children.length).toBe(2);
     expect(headerEl).toBe(mainEl.children.item(0));
     expect(paragraphEl).toBe(mainEl.children.item(1));
+    expect(paragraphEl.classList.contains('paragraph-class')).toBeTruthy();
 
     expect(headerEl.innerHTML).toBe('Hello');
     expect(paragraphEl.innerHTML).toBe('Whats up?');
@@ -37,6 +38,7 @@ test('basic test', () =>
 
     expect(headerEl.innerHTML).toBe('Hello there');
     expect(paragraphEl.innerHTML).toBe('Whats is up?');
+    expect(paragraphEl.classList.contains('paragraph-class')).toBeFalsy();
 });
 
 test('test class component with key', () =>
@@ -523,8 +525,8 @@ test('force updating', () =>
 
     const vdom2 = vdom('main', {id: 'mainId'},
         vdom(App, {name: 'Foo'},
-            vdom(TestComp, {}),
-            vdom('div', {}))
+            vdom(TestComp),
+            vdom('div'))
     );
 
     render(vdom2, rootEl);
@@ -551,6 +553,7 @@ test('functional component', () =>
     {
         readonly title: string;
         readonly name: string;
+        readonly useWrapper: boolean;
     }
     interface CompProps
     {
@@ -571,9 +574,14 @@ test('functional component', () =>
     {
         return vdom('main', {id: 'mainId'},
             vdom('h1', {}, `Hello ${props.title}`),
-            vdom(Wrapper, {},
-                vdom('span', {}, 'Wrapped 1'),
-                vdom('span', {}, 'Wrapped 2')),
+            (props.useWrapper ?
+                vdom(Wrapper, {},
+                    vdom('span', undefined, 'Wrapped 1'),
+                    vdom('span', undefined, 'Wrapped 2'))
+                    :
+                [ vdom('span', {}, 'Not wrapped 1'),
+                vdom('span', {}, 'Not wrapped 2')]
+            ),
             vdom(TestComp, {name: props.name}));
     }
     document.body.innerHTML = '<main id="root"></main>';
@@ -581,7 +589,7 @@ test('functional component', () =>
 
     if (rootEl == null) { fail('Root element not created!'); }
 
-    const vdom1 = vdom(App, {title: 'App', name: 'Foo'});
+    const vdom1 = vdom(App, {title: 'App', name: 'Foo', useWrapper: true});
     render(vdom1, rootEl);
 
     const mainEl = document.getElementById('mainId');
@@ -589,27 +597,52 @@ test('functional component', () =>
 
     expect(mainEl.children.length).toBe(3);
 
-    const headerEl = mainEl.children.item(0);
+    let headerEl = mainEl.children.item(0);
     if (headerEl == null) { fail('Could not find header element'); }
     expect(headerEl.nodeName).toBe('H1');
     expect(headerEl.innerHTML).toBe('Hello App');
 
-    const wrapperEl = mainEl.children.item(1);
+    let wrapperEl = mainEl.children.item(1);
     if (wrapperEl == null) { fail('Could not find wrapper element'); }
     expect(wrapperEl.children.length).toBe(2);
     expect(wrapperEl.classList.contains('wrapper-class')).toBeTruthy();
 
-    const wrapped1El = wrapperEl.children.item(0);
+    let wrapped1El = wrapperEl.children.item(0);
     if (wrapped1El == null) { fail('Could not find wrapped 1 element'); }
     expect(wrapped1El.nodeName).toBe('SPAN');
     expect(wrapped1El.innerHTML).toBe('Wrapped 1');
 
-    const wrapped2El = wrapperEl.children.item(1);
+    let wrapped2El = wrapperEl.children.item(1);
     if (wrapped2El == null) { fail('Could not find wrapped 2 element'); }
     expect(wrapped2El.nodeName).toBe('SPAN');
     expect(wrapped2El.innerHTML).toBe('Wrapped 2');
 
-    const testCompEl = mainEl.children.item(2);
+    let testCompEl = mainEl.children.item(2);
+    if (testCompEl == null) { fail('Could not find test comp element'); }
+    expect(testCompEl.nodeName).toBe('I');
+    expect(testCompEl.innerHTML).toBe('My name is Foo');
+
+    const vdom2 = vdom(App, {title: 'App', name: 'Foo', useWrapper: false});
+    render(vdom2, rootEl);
+
+    expect(mainEl.children.length).toBe(4);
+
+    headerEl = mainEl.children.item(0);
+    if (headerEl == null) { fail('Could not find header element'); }
+    expect(headerEl.nodeName).toBe('H1');
+    expect(headerEl.innerHTML).toBe('Hello App');
+
+    wrapped1El = mainEl.children.item(1);
+    if (wrapped1El == null) { fail('Could not find not wrapped 1 element'); }
+    expect(wrapped1El.nodeName).toBe('SPAN');
+    expect(wrapped1El.innerHTML).toBe('Not wrapped 1');
+
+    wrapped2El = mainEl.children.item(2);
+    if (wrapped2El == null) { fail('Could not find not wrapped 2 element'); }
+    expect(wrapped2El.nodeName).toBe('SPAN');
+    expect(wrapped2El.innerHTML).toBe('Not wrapped 2');
+
+    testCompEl = mainEl.children.item(3);
     if (testCompEl == null) { fail('Could not find test comp element'); }
     expect(testCompEl.nodeName).toBe('I');
     expect(testCompEl.innerHTML).toBe('My name is Foo');
@@ -628,7 +661,7 @@ test('svg', () =>
 
     const vdom1 = vdom('main', {id: 'mainId'},
         vdom('span', {}, 'Before SVG'),
-        vdom(Circle, {}),
+        vdom(Circle),
         vdom('span', {}, 'After SVG'));
 
     render(vdom1, rootEl);
@@ -660,4 +693,44 @@ test('svg', () =>
     expect(span2El.nodeName).toBe('SPAN');
     expect(span2El.innerHTML).toBe('After SVG');
     expect(span2El.namespaceURI).not.toBe('http://www.w3.org/2000/svg');
+});
+
+test('input', () =>
+{
+    interface InputProps
+    {
+        readonly checked: boolean;
+    }
+
+    const Input = (prop: InputProps) =>
+        vdom('input', { type: 'checkbox', checked: prop.checked });
+
+    document.body.innerHTML = '<main id="root"></main>';
+    const rootEl = document.getElementById('root');
+
+    if (rootEl == null) { fail('Root element not created!'); }
+
+    const vdom1 = vdom('main', {id: 'mainId'},
+        vdom(Input, {checked: true}),
+        vdom(Input, {checked: false})
+        );
+
+    render(vdom1, rootEl);
+
+    const mainEl = document.getElementById('mainId');
+    if (mainEl == null) { fail('Main element not created!'); }
+
+    expect(mainEl.children.length).toBe(2);
+
+    const input1El = mainEl.children.item(0) as HTMLInputElement;
+    if (input1El == null) { fail('Could not find first input element'); }
+    expect(input1El.nodeName).toBe('INPUT');
+    expect(input1El.getAttribute('type')).toBe('checkbox');
+    expect(input1El.checked).toBeTruthy();
+
+    const input2El = mainEl.children.item(1) as HTMLInputElement;
+    if (input2El == null) { fail('Could not find second input element'); }
+    expect(input2El.nodeName).toBe('INPUT');
+    expect(input2El.getAttribute('type')).toBe('checkbox');
+    expect(input2El.checked).toBeFalsy();
 });

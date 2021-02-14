@@ -510,11 +510,11 @@ function shallowEqual(objA: any, objB: any)
 export function render(virtualNode: VirtualElement, parent: HTMLElement)
 {
     nsStack = [];
-    let rootKey = parent.getAttribute('data-vdom-key');
+    let rootKey = (parent as any).vdomKey;
     if (!rootKey)
     {
         rootKey = `_R${++rootCounter}`;
-        parent.setAttribute('data-vdom-key', rootKey);
+        (parent as any).vdomKey = rootKey;
     }
     create(parent, virtualNode, rootKey);
 }

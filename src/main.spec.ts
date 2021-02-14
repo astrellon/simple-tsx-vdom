@@ -4,7 +4,7 @@ test('basic test', () =>
 {
     document.body.innerHTML = '<main id="root"></main>';
     const rootEl = document.getElementById('root');
-    const vdom1 = vdom('main', {id: 'mainId'},
+    const vdom1 = vdom('main', {id: 'mainId', key: 'main'},
         vdom('h1', {id: 'headerId'}, 'Hello'),
         vdom('p', {id: 'paragraphId', class: 'paragraph-class'}, 'Whats up?')
     );
@@ -29,7 +29,7 @@ test('basic test', () =>
     expect(headerEl.innerHTML).toBe('Hello');
     expect(paragraphEl.innerHTML).toBe('Whats up?');
 
-    const vdom2 = vdom('main', {id: 'mainId'},
+    const vdom2 = vdom('main', {id: 'mainId', key: 'main'},
         vdom('h1', {id: 'headerId'}, 'Hello there'),
         vdom('p', {id: 'paragraphId'}, 'Whats is up?')
     );
@@ -553,7 +553,11 @@ test('functional component', () =>
     {
         readonly title: string;
         readonly name: string;
-        readonly useWrapper: boolean;
+        readonly useWrapper?: boolean;
+    }
+    interface WrapperProps
+    {
+        readonly className: string;
     }
     interface CompProps
     {
@@ -565,17 +569,22 @@ test('functional component', () =>
         return vdom('i', {}, `My name is ${props.name}`);
     }
 
-    const Wrapper = (props: any, children: VirtualElement[]) =>
+    const Wrapper = (props: WrapperProps, children: VirtualElement[]) =>
     {
-        return vdom('div', {class: 'wrapper-class'}, children);
+        return vdom('div', {class: props.className}, children);
+    }
+
+    const firstCompProps: CompProps = {
+        name: 'Const'
     }
 
     const App = (props: AppProps, children: VirtualElement[]) =>
     {
         return vdom('main', {id: 'mainId'},
             vdom('h1', {}, `Hello ${props.title}`),
+            vdom(TestComp, firstCompProps),
             (props.useWrapper ?
-                vdom(Wrapper, {},
+                vdom(Wrapper, { className: 'wrapper-class' },
                     vdom('span', undefined, 'Wrapped 1'),
                     vdom('span', undefined, 'Wrapped 2'))
                     :
@@ -595,14 +604,19 @@ test('functional component', () =>
     const mainEl = document.getElementById('mainId');
     if (mainEl == null) { fail('Main element not created!'); }
 
-    expect(mainEl.children.length).toBe(3);
+    expect(mainEl.children.length).toBe(4);
 
     let headerEl = mainEl.children.item(0);
     if (headerEl == null) { fail('Could not find header element'); }
     expect(headerEl.nodeName).toBe('H1');
     expect(headerEl.innerHTML).toBe('Hello App');
 
-    let wrapperEl = mainEl.children.item(1);
+    let testComp1El = mainEl.children.item(1);
+    if (testComp1El == null) { fail('Could not find first test comp element'); }
+    expect(testComp1El.nodeName).toBe('I');
+    expect(testComp1El.innerHTML).toBe('My name is Const');
+
+    let wrapperEl = mainEl.children.item(2);
     if (wrapperEl == null) { fail('Could not find wrapper element'); }
     expect(wrapperEl.children.length).toBe(2);
     expect(wrapperEl.classList.contains('wrapper-class')).toBeTruthy();
@@ -617,35 +631,40 @@ test('functional component', () =>
     expect(wrapped2El.nodeName).toBe('SPAN');
     expect(wrapped2El.innerHTML).toBe('Wrapped 2');
 
-    let testCompEl = mainEl.children.item(2);
-    if (testCompEl == null) { fail('Could not find test comp element'); }
-    expect(testCompEl.nodeName).toBe('I');
-    expect(testCompEl.innerHTML).toBe('My name is Foo');
+    let testComp2El = mainEl.children.item(3);
+    if (testComp2El == null) { fail('Could not find second test comp element'); }
+    expect(testComp2El.nodeName).toBe('I');
+    expect(testComp2El.innerHTML).toBe('My name is Foo');
 
-    const vdom2 = vdom(App, {title: 'App', name: 'Foo', useWrapper: false});
+    const vdom2 = vdom(App, { title: 'App', name: 'Foo' });
     render(vdom2, rootEl);
 
-    expect(mainEl.children.length).toBe(4);
+    expect(mainEl.children.length).toBe(5);
 
     headerEl = mainEl.children.item(0);
     if (headerEl == null) { fail('Could not find header element'); }
     expect(headerEl.nodeName).toBe('H1');
     expect(headerEl.innerHTML).toBe('Hello App');
 
-    wrapped1El = mainEl.children.item(1);
+    testComp1El = mainEl.children.item(1);
+    if (testComp1El == null) { fail('Could not find first test comp element'); }
+    expect(testComp1El.nodeName).toBe('I');
+    expect(testComp1El.innerHTML).toBe('My name is Const');
+
+    wrapped1El = mainEl.children.item(2);
     if (wrapped1El == null) { fail('Could not find not wrapped 1 element'); }
     expect(wrapped1El.nodeName).toBe('SPAN');
     expect(wrapped1El.innerHTML).toBe('Not wrapped 1');
 
-    wrapped2El = mainEl.children.item(2);
+    wrapped2El = mainEl.children.item(3);
     if (wrapped2El == null) { fail('Could not find not wrapped 2 element'); }
     expect(wrapped2El.nodeName).toBe('SPAN');
     expect(wrapped2El.innerHTML).toBe('Not wrapped 2');
 
-    testCompEl = mainEl.children.item(3);
-    if (testCompEl == null) { fail('Could not find test comp element'); }
-    expect(testCompEl.nodeName).toBe('I');
-    expect(testCompEl.innerHTML).toBe('My name is Foo');
+    testComp2El = mainEl.children.item(4);
+    if (testComp2El == null) { fail('Could not find test comp element'); }
+    expect(testComp2El.nodeName).toBe('I');
+    expect(testComp2El.innerHTML).toBe('My name is Foo');
 });
 
 test('svg', () =>
@@ -734,3 +753,70 @@ test('input', () =>
     expect(input2El.getAttribute('type')).toBe('checkbox');
     expect(input2El.checked).toBeFalsy();
 });
+
+test('select', () =>
+{
+    interface SelectProps
+    {
+        readonly selected: string;
+    }
+
+    const Select = (prop: SelectProps) =>
+        vdom('select', { value: prop.selected },
+            vdom('option', { value: 'opt1'}, 'Option 1'),
+            vdom('option', { value: 'opt2'}, 'Option 2')
+            );
+
+    document.body.innerHTML = '<main id="root"></main>';
+    const rootEl = document.getElementById('root');
+
+    if (rootEl == null) { fail('Root element not created!'); }
+
+    const vdom1 = vdom('main', {id: 'mainId'},
+        vdom(Select, {selected: 'opt1'}),
+        vdom(Select, {selected: 'opt2'})
+        );
+
+    render(vdom1, rootEl);
+
+    const mainEl = document.getElementById('mainId');
+    if (mainEl == null) { fail('Main element not created!'); }
+
+    expect(mainEl.children.length).toBe(2);
+
+    const select1El = mainEl.children.item(0) as HTMLSelectElement;
+    if (select1El == null) { fail('Could not find first select element'); }
+    expect(select1El.nodeName).toBe('SELECT');
+    expect(select1El.value).toBe('opt1');
+
+    const select2El = mainEl.children.item(1) as HTMLSelectElement;
+    if (select2El == null) { fail('Could not find second select element'); }
+    expect(select2El.nodeName).toBe('SELECT');
+    expect(select2El.value).toBe('opt2');
+});
+
+test('test uncreated component', () =>
+{
+    interface Props
+    {
+        readonly name: string;
+    }
+
+    class TestNode extends VDomComponent<Props>
+    {
+        constructor()
+        {
+            super();
+        }
+
+        public render(): VirtualElement
+        {
+            const { name } = this.props;
+
+            return vdom('span', {}, 'TestNode: ', name);
+        }
+    }
+
+    const node = new TestNode();
+    node.forceUpdate();
+})

@@ -90,9 +90,9 @@ export abstract class VDomComponent<TProps extends Props = Props>
     public forceUpdate()
     {
         const vdomNode = vdomData[this.vdomKey];
-        if (vdomNode && vdomNode.domNode?.parentElement)
+        if (vdomNode)
         {
-            create(vdomNode.domNode?.parentElement, this.render(), this.vdomKey);
+            create((vdomNode.domNode as Node).parentElement as Node, this.render(), this.vdomKey);
         }
     }
 }
@@ -107,7 +107,7 @@ const createChildKey = (child: VirtualElement, parentKey: string, index: number)
 {
     if (!isTextNode(child))
     {
-        const childKey = child.props?.key;
+        const childKey = child.props.key;
         if (childKey != undefined)
         {
             return `${parentKey}_${childKey}`;
@@ -269,7 +269,7 @@ function deleteVDomDataRecursive(vdomNode: VDomData, key: string)
 
         if (isClassNode(vdomNode.vNode))
         {
-            vdomNode.classInstance?.onUnmount();
+            (vdomNode.classInstance as VDomComponent).onUnmount();
         }
     }
 
@@ -315,8 +315,13 @@ function createTextNode(currentVDom: VDomData | undefined, parentNode: Node, vNo
     }
 }
 
-function createFunctionalNode(parentNode: Node, vNode: VirtualFunctionalElement, key: string)
+function createFunctionalNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualFunctionalElement, key: string)
 {
+    if (currentVDom?.vNode && shallowEqual((currentVDom.vNode as VirtualFunctionalElement).props, vNode.props))
+    {
+        return;
+    }
+
     const functionalChildKey = createComplexKey(key);
     create(parentNode, vNode.renderNode(vNode.props, vNode.children), functionalChildKey);
     vdomData[key] = { vNode }
@@ -349,7 +354,6 @@ function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: Vir
 {
     const currentIntrinsicVNode = currentVDom?.vNode as VirtualIntrinsicElement;
     const previousChildren = currentIntrinsicVNode?.children;
-    let domNode = currentVDom?.domNode;
 
     const newXmlNs = vNode.props.xmlns;
     if (newXmlNs)
@@ -357,7 +361,10 @@ function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: Vir
         nsStack.push(newXmlNs);
     }
 
-    if (!currentVDom || currentIntrinsicVNode.intrinsicType !== vNode.intrinsicType)
+    const newNode = !currentVDom || currentIntrinsicVNode.intrinsicType !== vNode.intrinsicType;
+
+    let domNode: Node;
+    if (newNode)
     {
         if (currentVDom)
         {
@@ -374,11 +381,10 @@ function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: Vir
             domNode = document.createElement(vNode.intrinsicType);
         }
         parentNode.appendChild(domNode);
-        addAttributes(domNode as HTMLElement, vNode.props);
     }
     else
     {
-        applyAttributes(currentVDom.domNode as HTMLElement, currentIntrinsicVNode.props, vNode.props);
+        domNode = currentVDom.domNode as Node;
     }
 
     vdomData[key] = { domNode, vNode };
@@ -396,12 +402,12 @@ function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: Vir
         }
     }
 
-    const domNodeChildren = domNode?.childNodes as NodeListOf<ChildNode>;
+    const domNodeChildren = domNode.childNodes as NodeListOf<ChildNode>;
     for (let i = 0; i < vNode.children.length; i++)
     {
         const child = vNode.children[i];
         const childKey = createChildKey(child, key, i);
-        create(domNode as Node, child, childKey);
+        create(domNode, child, childKey);
         delete keysToRemove[childKey];
 
         const newVDom = isFunctionalNode(child) || isClassNode(child) ?
@@ -420,6 +426,16 @@ function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: Vir
         deleteVDomDataRecursive(childVDom, childKey);
     }
 
+    // Add or apply attributes after children are created for select element.
+    if (newNode)
+    {
+        addAttributes(domNode as HTMLElement, vNode.props);
+    }
+    else
+    {
+        applyAttributes(currentVDom.domNode as HTMLElement, currentIntrinsicVNode.props, vNode.props);
+    }
+
     if (newXmlNs)
     {
         nsStack.pop();
@@ -429,11 +445,6 @@ function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: Vir
 // Takes a virtual node and turns it into a DOM node.
 function create(parentNode: Node, vNode: VirtualElement, key: string)
 {
-    if (isFunctionalNode(vNode))
-    {
-        createFunctionalNode(parentNode, vNode, key);
-        return;
-    }
 
     const currentVDom = vdomData[key];
 
@@ -449,6 +460,10 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
     else if (isClassNode(vNode))
     {
         createClassNode(currentVDom, parentNode, vNode, key);
+    }
+    else if (isFunctionalNode(vNode))
+    {
+        createFunctionalNode(currentVDom, parentNode, vNode, key);
     }
     else if (isIntrinsicNode(vNode))
     {
@@ -471,11 +486,6 @@ function shallowEqual(objA: any, objB: any)
     if (objA === objB)
     {
         return true;
-    }
-
-    if (objA === null || objB === null)
-    {
-        return false;
     }
 
     const keysA = Object.keys(objA);
@@ -516,9 +526,9 @@ export function render(virtualNode: VirtualElement, parent: HTMLElement)
 export function vdom(type: VirtualNodeType, props: any | undefined = undefined, ...children: VirtualNode[]): VirtualElement
 {
     // Handle getting back an array of children. Eg: [[item1, item2]] instead of just [item1, item2].
-    const flatten = !!children ? children.flat(Infinity)
+    const flatten = children.flat(Infinity)
         .filter(child => !!child)
-        .map(processNode) : [];
+        .map(processNode);
 
     props = props || {};
 

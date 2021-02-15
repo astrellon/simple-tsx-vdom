@@ -1,4 +1,5 @@
 # Simple TSX VDom
+![NPM](https://badgen.net/npm/v/simple-tsx-vdom)![Badge for Gzip size](https://badgen.net/bundlephobia/minzip/simple-tsx-vdom)
 
 A simple implementation of a virtual DOM with TSX support.
 

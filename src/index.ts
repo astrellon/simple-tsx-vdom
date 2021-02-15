@@ -74,6 +74,10 @@ export abstract class ClassComponent<TProps extends Props = Props>
 
     public onMount() { }
     public onUnmount() { }
+    public hasChanged(newProps: TProps)
+    {
+        return !shallowEqual(this.props, newProps);
+    }
     public abstract render(): VirtualElement;
 
     public internalRender(props: TProps, children: VirtualElement[]): VirtualElement
@@ -315,13 +319,8 @@ function createTextNode(currentVDom: VDomData | undefined, parentNode: Node, vNo
     }
 }
 
-function createFunctionalNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualFunctionalElement, key: string)
+function createFunctionalNode(parentNode: Node, vNode: VirtualFunctionalElement, key: string)
 {
-    if (currentVDom?.vNode && shallowEqual((currentVDom.vNode as VirtualFunctionalElement).props, vNode.props))
-    {
-        return;
-    }
-
     const functionalChildKey = createComplexKey(key);
     create(parentNode, vNode.renderNode(vNode.props, vNode.children), functionalChildKey);
     vdomData[key] = { vNode }
@@ -329,11 +328,6 @@ function createFunctionalNode(currentVDom: VDomData, parentNode: Node, vNode: Vi
 
 function createClassNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualClassElement, key: string)
 {
-    if (currentVDom?.vNode && shallowEqual((currentVDom.vNode as VirtualClassElement).props, vNode.props))
-    {
-        return;
-    }
-
     let inst = currentVDom?.classInstance;
     const isNew = !inst;
     if (!inst)
@@ -341,6 +335,11 @@ function createClassNode(currentVDom: VDomData, parentNode: Node, vNode: Virtual
         inst = new vNode.ctor();
         inst.vdomKey = createComplexKey(key);
     }
+    else if (!inst.hasChanged(vNode.props))
+    {
+        return;
+    }
+
     create(parentNode, inst.internalRender(vNode.props, vNode.children), inst.vdomKey);
     vdomData[key] = { vNode, classInstance: inst }
 
@@ -439,7 +438,6 @@ function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: Vir
 // Takes a virtual node and turns it into a DOM node.
 function create(parentNode: Node, vNode: VirtualElement, key: string)
 {
-
     const currentVDom = vdomData[key];
 
     if (hasVElementChanged(currentVDom?.vNode, vNode))
@@ -457,7 +455,7 @@ function create(parentNode: Node, vNode: VirtualElement, key: string)
     }
     else if (isFunctionalNode(vNode))
     {
-        createFunctionalNode(currentVDom, parentNode, vNode, key);
+        createFunctionalNode(parentNode, vNode, key);
     }
     else if (isIntrinsicNode(vNode))
     {

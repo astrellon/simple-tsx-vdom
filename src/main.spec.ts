@@ -1,4 +1,4 @@
-import { vdom, render, ClassComponent, VirtualElement, Props } from ".";
+import { vdom, render, ClassComponent, VirtualElement } from ".";
 
 test('basic', () =>
 {
@@ -865,7 +865,7 @@ test('select', () =>
     expect(select2El.value).toBe('opt2');
 });
 
-test('test uncreated component', () =>
+test('uncreated component', () =>
 {
     interface Props
     {
@@ -889,4 +889,73 @@ test('test uncreated component', () =>
 
     const node = new TestNode();
     node.forceUpdate();
+});
+
+test('props check', () =>
+{
+    interface Props
+    {
+        readonly name: string;
+        readonly age?: number;
+    }
+
+    class TestNode extends ClassComponent<Props>
+    {
+        constructor()
+        {
+            super();
+        }
+
+        public render(): VirtualElement
+        {
+            const { name, age } = this.props;
+
+            return vdom('span', {}, 'TestNode: ', name, ' ', ((age != undefined) ? age : 'unknown'));
+        }
+    }
+
+    document.body.innerHTML = '<main id="root"></main>';
+    const rootEl = document.getElementById('root');
+
+    if (rootEl == null) { fail('Root element not created!'); }
+
+    const sameProps: Props = {
+        name: 'Foo',
+        age: 10
+    }
+
+    const vdom1 = vdom('main', {id: 'mainId'},
+        vdom(TestNode, sameProps),
+        vdom(TestNode, {name: 'Bar'})
+        );
+
+    render(vdom1, rootEl);
+
+    const mainEl = document.getElementById('mainId');
+    if (mainEl == null) { fail('Main element not created!'); }
+
+    expect(mainEl.children.length).toBe(2);
+
+    const node1El = mainEl.children.item(0) as HTMLSpanElement;
+    if (node1El == null) { fail('Could not find first element'); }
+    expect(node1El.nodeName).toBe('SPAN');
+    expect(node1El.innerHTML).toBe('TestNode: Foo 10');
+
+    const node2El = mainEl.children.item(1) as HTMLSpanElement;
+    if (node2El == null) { fail('Could not find second element'); }
+    expect(node2El.nodeName).toBe('SPAN');
+    expect(node2El.innerHTML).toBe('TestNode: Bar unknown');
+
+    const vdom2 = vdom('main', {id: 'mainId'},
+        vdom(TestNode, sameProps),
+        vdom(TestNode, {name: 'Bar', age: 20})
+        );
+
+    render(vdom2, rootEl);
+
+    expect(node1El.nodeName).toBe('SPAN');
+    expect(node1El.innerHTML).toBe('TestNode: Foo 10');
+
+    expect(node2El.nodeName).toBe('SPAN');
+    expect(node2El.innerHTML).toBe('TestNode: Bar 20');
 });

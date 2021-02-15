@@ -1,6 +1,6 @@
 {
   "name": "simple-tsx-vdom",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A simple virtual DOM with TSX support, not made for performance but for learning",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -15,6 +15,9 @@
       "user interface",
       "virtual dom",
       "dom diff"
+  ],
+  "files": [
+      "dist"
   ],
   "scripts": {
     "build": "tsc && cp src/jsx.d.ts dist/jsx.d.ts && terser -c -m toplevel -o dist/index.min.js --source-map filename=dist/input.js.map dist/index.js",

@@ -1,13 +1,27 @@
 {
   "name": "simple-tsx-vdom",
   "version": "0.0.1",
-  "description": "A simple virtual DOM, not made for performance but for learning",
+  "description": "A simple virtual DOM with TSX support, not made for performance but for learning",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "unpkg": "dist/index.min.js",
+  "module": "dist/index.js",
+  "repository": "github:astrellon/simple-tsx-vdom",
+  "keywords": [
+      "vdom",
+      "framework",
+      "learning",
+      "ui",
+      "user interface",
+      "virtual dom",
+      "dom diff"
+  ],
   "scripts": {
     "build": "tsc && cp src/jsx.d.ts dist/jsx.d.ts && terser -c -m toplevel -o dist/index.min.js --source-map filename=dist/input.js.map dist/index.js",
     "test": "jest --verbose",
     "coverage": "jest --coverage --coverageDirectory='coverage'"
   },
+  "npmName": "simple-tsx-vdom",
   "author": "Alan Lawrey",
   "license": "MIT",
   "devDependencies": {

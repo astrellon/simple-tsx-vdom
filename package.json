@@ -1,5 +1,5 @@
 {
-  "name": "simple-vdom",
+  "name": "simple-tsx-vdom",
   "version": "0.0.1",
   "description": "A simple virtual DOM, not made for performance but for learning",
   "main": "dist/index.js",

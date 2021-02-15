@@ -7,16 +7,17 @@ interface Props
     readonly type: IconType;
 }
 
-const infoIcon = <svg xmlns="http://www.w3.org/2000/svg" class="icon" viewBox="0 0 512 512">
-        <path d="M248 64C146.39 64 64 146.39 64 248s82.39 184 184 184 184-82.39 184-184S349.61 64 248 64z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32" />
-        <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M220 220h32v116" />
-        <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-miterlimit="10" stroke-width="32" d="M208 340h88" /><path d="M248 130a26 26 0 1026 26 26 26 0 00-26-26z" />
+const infoIcon = <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
+        <circle cy="12" cx="12" fill="none" stroke="#000" stroke-width="2" r="11" />
+        <rect x="11" y="6" width="2" height="2" />
+        <rect x="11" y="10" width="2" height="8" />
     </svg>;
 
-const addIcon = <svg xmlns="http://www.w3.org/2000/svg" class="icon" viewBox="0 0 512 512">
-        <path d="M448 256c0-106-86-192-192-192S64 150 64 256s86 192 192 192 192-86 192-192z" fill="none" stroke="currentColor" stroke-miterlimit="10" stroke-width="32"/>
-        <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="32" d="M256 176v160M336 256H176"/>
-    </svg>
+const addIcon = <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="22" height="22">
+        <circle cy="12" cx="12" fill="none" stroke="#000" stroke-width="2" r="11" />
+        <rect x="6" y="11" width="12" height="2" />
+        <rect x="11" y="6" width="2" height="12" />
+    </svg>;
 
 export const Icon: FunctionalComponent = (props: Props) =>
 {

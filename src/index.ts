@@ -1,7 +1,7 @@
 //// Types
 
 // How we want our virtual elements to look like
-interface IVirtualContainerElement
+export interface IVirtualContainerElement
 {
     // Properties of the this virtual DOM element.
     readonly props: Props;
@@ -11,24 +11,24 @@ interface IVirtualContainerElement
     readonly children: VirtualElement[];
 }
 
-interface VirtualIntrinsicElement extends IVirtualContainerElement
+export interface VirtualIntrinsicElement extends IVirtualContainerElement
 {
     // The name of the node type ('div', 'span', etc)
     readonly intrinsicType: string;
 }
 
-interface VirtualFunctionalElement extends IVirtualContainerElement
+export interface VirtualFunctionalElement extends IVirtualContainerElement
 {
     readonly renderNode: FunctionalComponent;
 }
 
-type ClassComponentConstructor = new () => ClassComponent;
-interface VirtualClassElement extends IVirtualContainerElement
+export type ClassComponentConstructor = new () => ClassComponent;
+export interface VirtualClassElement extends IVirtualContainerElement
 {
     readonly ctor: ClassComponentConstructor;
 }
 
-interface VirtualTextElement
+export interface VirtualTextElement
 {
     readonly textValue: string;
 }
@@ -40,7 +40,7 @@ interface ObjectDiff
     [key: string]: any;
 }
 
-interface VDomData
+export interface VDomData
 {
     readonly domNode?: Node;
     readonly vNode: VirtualElement;
@@ -70,6 +70,7 @@ export abstract class ClassComponent<TProps extends Props = Props>
 {
     public props: TProps = ({} as any);
     public children: VirtualElement[] = [];
+    public vdom?: VDom = undefined;
     public vdomKey: string = '';
 
     public onMount() { }
@@ -90,19 +91,402 @@ export abstract class ClassComponent<TProps extends Props = Props>
 
     public forceUpdate()
     {
-        const vdomNode = vdomData[this.vdomKey];
+        if (!this.vdom)
+        {
+            return;
+        }
+
+        const vdomNode = this.vdom.vdomData[this.vdomKey];
         if (vdomNode)
         {
-            create((vdomNode.domNode as Node).parentElement as Node, this.render(), this.vdomKey);
+            this.vdom.createDom((vdomNode.domNode as Node).parentElement as Node, this.render(), this.vdomKey);
         }
     }
 }
 
 //// Internal Constants
 
-const vdomData: VDomDataStore = { }
-let rootCounter: number = 0;
-let nsStack: string[] = [];
+export class VDom
+{
+    static rootCounter: number = 0;
+    static current: VDom = new VDom();
+
+    public vdomData: VDomDataStore = {};
+    public nsStack: string[] = [];
+
+    public isValidAttribute(attribute: string)
+    {
+        return attribute !== 'key' && attribute !== 'style';
+    }
+
+    public setAttribute(htmlElement: HTMLElement, attribute: string, value: string | EventListener)
+    {
+        // We'll handle style somewhere else
+        if (!this.isValidAttribute(attribute))
+        {
+            return;
+        }
+
+        // Check if the string starts with the letters 'on'.
+        // Note this function is not available in Internet Explorer.
+        if (attributeIsEventListener(attribute, value))
+        {
+            // Chop off the first two characters and use the rest as the event listener type.
+            // Note: This is *not* the correct way to do this.
+            // It'll pick on anything that starts with 'on', like 'onion' or 'once'.
+            // Also we're not checking if the value is actually a function.
+            // For now to get a working example UI we'll go with it.
+            htmlElement.addEventListener(attribute.substr(2), value);
+        }
+        else if (attribute === 'value' || attribute === 'selected' || attribute === 'checked')
+        {
+            (htmlElement as any)[attribute] = value;
+        }
+        else
+        {
+            // setAttribute is used for any attribute on an element such as class, value, src, etc.
+            htmlElement.setAttribute(attribute, value.toString());
+        }
+    }
+
+    public removeAttribute(htmlElement: HTMLElement, attribute: string, listener?: EventListener)
+    {
+        if (!this.isValidAttribute(attribute))
+        {
+            return;
+        }
+
+        // Check if the string starts with the letters 'on'.
+        // Note this function is not available in Internet Explorer.
+        if (attributeIsEventListener(attribute, listener))
+        {
+            htmlElement.removeEventListener(attribute.substr(2), listener);
+        }
+        else
+        {
+            htmlElement.removeAttribute(attribute);
+        }
+    }
+
+    public diffProps(currentProps: Props, newProps: Props)
+    {
+        const remove: ObjectDiff = Object.assign({}, currentProps);
+        const add: ObjectDiff = {};
+
+        for (const prop in (newProps || {}))
+        {
+            const currentValue = remove[prop];
+            const newValue = newProps[prop];
+            if (currentValue != undefined && currentValue === newValue)
+            {
+                delete remove[prop];
+            }
+            else
+            {
+                add[prop] = newValue;
+            }
+        }
+
+        return { remove, add }
+    }
+
+    public applyAttributes(htmlElement: HTMLElement, currentProps: Props, newProps: Props)
+    {
+        const { remove, add } = this.diffProps(currentProps, newProps);
+
+        for (const prop in remove)
+        {
+            this.removeAttribute(htmlElement, prop, remove[prop]);
+        }
+        for (const prop in add)
+        {
+            this.setAttribute(htmlElement, prop, add[prop]);
+        }
+    }
+
+    public applyStyle(htmlElement: HTMLElement, currentStyle: CSSStyleDeclaration, newStyle: CSSStyleDeclaration)
+    {
+        const { remove, add } = this.diffProps(currentStyle, newStyle);
+
+        for (const prop in remove)
+        {
+            this.removeStyle(htmlElement, prop);
+        }
+        for (const prop in add)
+        {
+            this.setStyle(htmlElement, prop, add[prop]);
+        }
+    }
+
+    public removeStyle(htmlElement: HTMLElement, prop: string)
+    {
+        (htmlElement.style as any)[prop] = undefined;
+    }
+    public setStyle(htmlElement: HTMLElement, prop: string, value: any)
+    {
+        (htmlElement.style as any)[prop] = value;
+    }
+
+    public deleteVDomDataRecursive(vdomNode: VDomData, key: string)
+    {
+        if (!vdomNode)
+        {
+            return;
+        }
+
+        if (isIntrinsicNode(vdomNode.vNode))
+        {
+            const children = vdomNode.vNode.children;
+            for (let i = 0; i < children.length; i++)
+            {
+                const childKey = createChildKey(children[i], key, i);
+                const childVDom = this.vdomData[childKey];
+                this.deleteVDomDataRecursive(childVDom, childKey);
+            }
+        }
+        else if (isFunctionalNode(vdomNode.vNode) || isClassNode(vdomNode.vNode))
+        {
+            const functionalChildKey = createComplexKey(key);
+            const functionalChildVDom = this.vdomData[functionalChildKey];
+            this.deleteVDomDataRecursive(functionalChildVDom, functionalChildKey);
+
+            if (isClassNode(vdomNode.vNode))
+            {
+                (vdomNode.classInstance as ClassComponent).onUnmount();
+            }
+        }
+
+        removeHtmlNode(vdomNode.domNode);
+        delete this.vdomData[key];
+    }
+
+    public hasVElementChanged(oldNode: VirtualElement, newNode: VirtualElement)
+    {
+        if (!oldNode)
+        {
+            return false;
+        }
+
+        if (isFunctionalNode(oldNode))
+        {
+            return oldNode.renderNode !== (newNode as VirtualFunctionalElement).renderNode;
+        }
+        if (isClassNode(oldNode))
+        {
+            return oldNode.ctor !== (newNode as VirtualClassElement).ctor;
+        }
+        if (isIntrinsicNode(oldNode))
+        {
+            return oldNode.intrinsicType !== (newNode as VirtualIntrinsicElement).intrinsicType;
+        }
+
+        return false;
+    }
+
+    public createTextNode(currentVDom: VDomData | undefined, parentNode: Node, vNode: VirtualTextElement, key: string)
+    {
+        if (!currentVDom)
+        {
+            const domNode = document.createTextNode(vNode.textValue);
+            parentNode.appendChild(domNode);
+            this.vdomData[key] = { domNode, vNode }
+        }
+        else if ((currentVDom.vNode as VirtualTextElement).textValue !== vNode.textValue)
+        {
+            (currentVDom.domNode as Node).nodeValue = vNode.textValue;
+            this.vdomData[key] = { domNode: currentVDom.domNode, vNode }
+        }
+    }
+
+    public createFunctionalNode(parentNode: Node, vNode: VirtualFunctionalElement, key: string)
+    {
+        const functionalChildKey = createComplexKey(key);
+        this.createDom(parentNode, vNode.renderNode(vNode.props, vNode.children), functionalChildKey);
+        this.vdomData[key] = { vNode }
+    }
+
+    public createClassNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualClassElement, key: string)
+    {
+        let inst = currentVDom?.classInstance;
+        const isNew = !inst;
+        if (!inst)
+        {
+            inst = new vNode.ctor();
+            inst.vdomKey = createComplexKey(key);
+            inst.vdom = this;
+        }
+        else if (!inst.hasChanged(vNode.props))
+        {
+            return;
+        }
+
+        this.createDom(parentNode, inst.internalRender(vNode.props, vNode.children), inst.vdomKey);
+        this.vdomData[key] = { vNode, classInstance: inst }
+
+        if (isNew)
+        {
+            inst.onMount();
+        }
+    }
+
+    public createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualIntrinsicElement, key: string)
+    {
+        const currentIntrinsicVNode = currentVDom?.vNode as VirtualIntrinsicElement;
+        const previousChildren = currentIntrinsicVNode?.children;
+
+        const newXmlNs = vNode.props.xmlns;
+        if (newXmlNs)
+        {
+            this.nsStack.push(newXmlNs);
+        }
+
+        const newNode = !currentVDom || currentIntrinsicVNode.intrinsicType !== vNode.intrinsicType;
+
+        let domNode: Node;
+        if (newNode)
+        {
+            if (currentVDom)
+            {
+                removeHtmlNode(currentVDom.domNode);
+            }
+
+            const stackXmlNs = this.nsStack[this.nsStack.length - 1];
+            if (stackXmlNs)
+            {
+                domNode = document.createElementNS(stackXmlNs, vNode.intrinsicType);
+            }
+            else
+            {
+                domNode = document.createElement(vNode.intrinsicType);
+            }
+            parentNode.appendChild(domNode);
+        }
+        else
+        {
+            domNode = currentVDom.domNode as Node;
+        }
+
+        this.vdomData[key] = { domNode, vNode };
+        const keysToRemove: { [key: string]: VirtualElement } = {};
+        const previousVNodes: VDomData[] = [];
+
+        if (previousChildren)
+        {
+            for (let i = 0; i < previousChildren.length; i++)
+            {
+                const child = previousChildren[i];
+                const childKey = createChildKey(child, key, i);
+                keysToRemove[childKey] = child;
+                previousVNodes[i] = this.vdomData[childKey];
+            }
+        }
+
+        const domNodeChildren = domNode.childNodes as NodeListOf<ChildNode>;
+        for (let i = 0; i < vNode.children.length; i++)
+        {
+            const child = vNode.children[i];
+            const childKey = createChildKey(child, key, i);
+            this.createDom(domNode, child, childKey);
+            delete keysToRemove[childKey];
+
+            const newVDom = isFunctionalNode(child) || isClassNode(child) ?
+                this.vdomData[createComplexKey(childKey)] :
+                this.vdomData[childKey];
+
+            if (domNodeChildren[i] !== newVDom.domNode)
+            {
+                newVDom.domNode?.parentNode?.insertBefore(newVDom.domNode, domNodeChildren[i]);
+            }
+        }
+
+        for (const childKey in keysToRemove)
+        {
+            const childVDom = this.vdomData[childKey];
+            this.deleteVDomDataRecursive(childVDom, childKey);
+        }
+
+        // Add or apply attributes after children are created for select element.
+        this.applyAttributes(domNode as HTMLElement, currentIntrinsicVNode?.props, vNode.props);
+        this.applyStyle(domNode as HTMLElement, currentIntrinsicVNode?.props.style, vNode.props.style);
+
+        if (newXmlNs)
+        {
+            this.nsStack.pop();
+        }
+    }
+
+    // Takes a virtual node and turns it into a DOM node.
+    public createDom(parentNode: Node, vNode: VirtualElement, key: string)
+    {
+        const currentVDom = this.vdomData[key];
+
+        if (this.hasVElementChanged(currentVDom?.vNode, vNode))
+        {
+            this.deleteVDomDataRecursive(currentVDom, key);
+        }
+
+        if (isTextNode(vNode))
+        {
+            this.createTextNode(currentVDom, parentNode, vNode, key);
+        }
+        else if (isClassNode(vNode))
+        {
+            this.createClassNode(currentVDom, parentNode, vNode, key);
+        }
+        else if (isFunctionalNode(vNode))
+        {
+            this.createFunctionalNode(parentNode, vNode, key);
+        }
+        else if (isIntrinsicNode(vNode))
+        {
+            this.createIntrinsicNode(currentVDom, parentNode, vNode, key);
+        }
+    }
+
+    public processNode(input: VirtualNode): VirtualElement
+    {
+        if (typeof(input) === 'object')
+        {
+            return input as VirtualElement;
+        }
+
+        return { textValue: input.toString() }
+    }
+
+    public render(virtualNode: VirtualElement, parent: HTMLElement)
+    {
+        this.nsStack = [];
+        let rootKey = (parent as any).vdomKey;
+        if (!rootKey)
+        {
+            rootKey = `_R${++VDom.rootCounter}`;
+            (parent as any).vdomKey = rootKey;
+        }
+        this.createDom(parent, virtualNode, rootKey);
+    }
+
+    // Helper function for creating virtual DOM object.
+    public createVDom(type: VirtualNodeType, props: any | undefined = undefined, ...children: VirtualNode[]): VirtualElement
+    {
+        // Handle getting back an array of children. Eg: [[item1, item2]] instead of just [item1, item2].
+        const flatten = children.flat(Infinity)
+            .filter(child => child != undefined && child !== false)
+            .map(this.processNode);
+
+        props = props || {};
+
+        if (typeof(type) === 'string')
+        {
+            return { intrinsicType: type, props, children: flatten }
+        }
+        if (type.prototype instanceof ClassComponent)
+        {
+            return { ctor: type as ClassComponentConstructor, children: flatten, props }
+        }
+
+        return { renderNode: type as FunctionalComponent, props, children: flatten };
+    }
+}
 
 const createChildKey = (child: VirtualElement, parentKey: string, index: number) =>
 {
@@ -154,327 +538,8 @@ const removeHtmlNode = (htmlElement?: Node) =>
     htmlElement.parentElement?.removeChild(htmlElement);
 }
 
-function setAttribute(htmlElement: HTMLElement, attribute: string, value: string | EventListener)
-{
-    // We'll handle style somewhere else
-    if (attribute === 'key' || attribute === 'style')
-    {
-        return;
-    }
-
-    // Check if the string starts with the letters 'on'.
-    // Note this function is not available in Internet Explorer.
-    if (attributeIsEventListener(attribute, value))
-    {
-        // Chop off the first two characters and use the rest as the event listener type.
-        // Note: This is *not* the correct way to do this.
-        // It'll pick on anything that starts with 'on', like 'onion' or 'once'.
-        // Also we're not checking if the value is actually a function.
-        // For now to get a working example UI we'll go with it.
-        htmlElement.addEventListener(attribute.substr(2), value);
-    }
-    else if (attribute === 'value' || attribute === 'selected' || attribute === 'checked')
-    {
-        (htmlElement as any)[attribute] = value;
-    }
-    else
-    {
-        // setAttribute is used for any attribute on an element such as class, value, src, etc.
-        htmlElement.setAttribute(attribute, value.toString());
-    }
-}
-
-function removeAttribute(htmlElement: HTMLElement, attribute: string, listener?: EventListener)
-{
-    // Check if the string starts with the letters 'on'.
-    // Note this function is not available in Internet Explorer.
-    if (attributeIsEventListener(attribute, listener))
-    {
-        htmlElement.removeEventListener(attribute.substr(2), listener);
-    }
-    else
-    {
-        htmlElement.removeAttribute(attribute);
-    }
-}
-
-function diffProps(currentProps: Props, newProps: Props)
-{
-    const remove: ObjectDiff = Object.assign({}, currentProps);
-    const add: ObjectDiff = {};
-
-    for (const prop in (newProps || {}))
-    {
-        const currentValue = remove[prop];
-        const newValue = newProps[prop];
-        if (currentValue != undefined && currentValue === newValue)
-        {
-            delete remove[prop];
-        }
-        else
-        {
-            add[prop] = newValue;
-        }
-    }
-
-    return { remove, add }
-}
-
-function applyAttributes(htmlElement: HTMLElement, currentProps: Props, newProps: Props)
-{
-    const { remove, add } = diffProps(currentProps, newProps);
-
-    for (const prop in remove)
-    {
-        removeAttribute(htmlElement, prop, remove[prop]);
-    }
-    for (const prop in add)
-    {
-        setAttribute(htmlElement, prop, add[prop]);
-    }
-}
-
-function applyStyle(htmlElement: HTMLElement, currentStyle: CSSStyleDeclaration, newStyle: CSSStyleDeclaration)
-{
-    const { remove, add } = diffProps(currentStyle, newStyle);
-
-    for (const prop in remove)
-    {
-        (htmlElement.style as any)[prop] = undefined;
-    }
-    for (const prop in add)
-    {
-        (htmlElement.style as any)[prop] = add[prop];
-    }
-}
-
-function deleteVDomDataRecursive(vdomNode: VDomData, key: string)
-{
-    if (!vdomNode)
-    {
-        return;
-    }
-
-    if (isIntrinsicNode(vdomNode.vNode))
-    {
-        const children = vdomNode.vNode.children;
-        for (let i = 0; i < children.length; i++)
-        {
-            const childKey = createChildKey(children[i], key, i);
-            const childVDom = vdomData[childKey];
-            deleteVDomDataRecursive(childVDom, childKey);
-        }
-    }
-    else if (isFunctionalNode(vdomNode.vNode) || isClassNode(vdomNode.vNode))
-    {
-        const functionalChildKey = createComplexKey(key);
-        const functionalChildVDom = vdomData[functionalChildKey];
-        deleteVDomDataRecursive(functionalChildVDom, functionalChildKey);
-
-        if (isClassNode(vdomNode.vNode))
-        {
-            (vdomNode.classInstance as ClassComponent).onUnmount();
-        }
-    }
-
-    removeHtmlNode(vdomNode.domNode);
-    delete vdomData[key];
-}
-
-function hasVElementChanged(oldNode: VirtualElement, newNode: VirtualElement)
-{
-    if (!oldNode)
-    {
-        return false;
-    }
-
-    if (isFunctionalNode(oldNode))
-    {
-        return oldNode.renderNode !== (newNode as VirtualFunctionalElement).renderNode;
-    }
-    if (isClassNode(oldNode))
-    {
-        return oldNode.ctor !== (newNode as VirtualClassElement).ctor;
-    }
-    if (isIntrinsicNode(oldNode))
-    {
-        return oldNode.intrinsicType !== (newNode as VirtualIntrinsicElement).intrinsicType;
-    }
-
-    return false;
-}
-
-function createTextNode(currentVDom: VDomData | undefined, parentNode: Node, vNode: VirtualTextElement, key: string)
-{
-    if (!currentVDom)
-    {
-        const domNode = document.createTextNode(vNode.textValue);
-        parentNode.appendChild(domNode);
-        vdomData[key] = { domNode, vNode }
-    }
-    else if ((currentVDom.vNode as VirtualTextElement).textValue !== vNode.textValue)
-    {
-        (currentVDom.domNode as Node).nodeValue = vNode.textValue;
-        vdomData[key] = { domNode: currentVDom.domNode, vNode }
-    }
-}
-
-function createFunctionalNode(parentNode: Node, vNode: VirtualFunctionalElement, key: string)
-{
-    const functionalChildKey = createComplexKey(key);
-    create(parentNode, vNode.renderNode(vNode.props, vNode.children), functionalChildKey);
-    vdomData[key] = { vNode }
-}
-
-function createClassNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualClassElement, key: string)
-{
-    let inst = currentVDom?.classInstance;
-    const isNew = !inst;
-    if (!inst)
-    {
-        inst = new vNode.ctor();
-        inst.vdomKey = createComplexKey(key);
-    }
-    else if (!inst.hasChanged(vNode.props))
-    {
-        return;
-    }
-
-    create(parentNode, inst.internalRender(vNode.props, vNode.children), inst.vdomKey);
-    vdomData[key] = { vNode, classInstance: inst }
-
-    if (isNew)
-    {
-        inst.onMount();
-    }
-}
-
-function createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualIntrinsicElement, key: string)
-{
-    const currentIntrinsicVNode = currentVDom?.vNode as VirtualIntrinsicElement;
-    const previousChildren = currentIntrinsicVNode?.children;
-
-    const newXmlNs = vNode.props.xmlns;
-    if (newXmlNs)
-    {
-        nsStack.push(newXmlNs);
-    }
-
-    const newNode = !currentVDom || currentIntrinsicVNode.intrinsicType !== vNode.intrinsicType;
-
-    let domNode: Node;
-    if (newNode)
-    {
-        if (currentVDom)
-        {
-            removeHtmlNode(currentVDom.domNode);
-        }
-
-        const stackXmlNs = nsStack[nsStack.length - 1];
-        if (stackXmlNs)
-        {
-            domNode = document.createElementNS(stackXmlNs, vNode.intrinsicType);
-        }
-        else
-        {
-            domNode = document.createElement(vNode.intrinsicType);
-        }
-        parentNode.appendChild(domNode);
-    }
-    else
-    {
-        domNode = currentVDom.domNode as Node;
-    }
-
-    vdomData[key] = { domNode, vNode };
-    const keysToRemove: { [key: string]: VirtualElement } = {};
-    const previousVNodes: VDomData[] = [];
-
-    if (previousChildren)
-    {
-        for (let i = 0; i < previousChildren.length; i++)
-        {
-            const child = previousChildren[i];
-            const childKey = createChildKey(child, key, i);
-            keysToRemove[childKey] = child;
-            previousVNodes[i] = vdomData[childKey];
-        }
-    }
-
-    const domNodeChildren = domNode.childNodes as NodeListOf<ChildNode>;
-    for (let i = 0; i < vNode.children.length; i++)
-    {
-        const child = vNode.children[i];
-        const childKey = createChildKey(child, key, i);
-        create(domNode, child, childKey);
-        delete keysToRemove[childKey];
-
-        const newVDom = isFunctionalNode(child) || isClassNode(child) ?
-            vdomData[createComplexKey(childKey)] :
-            vdomData[childKey];
-
-        if (domNodeChildren[i] !== newVDom.domNode)
-        {
-            newVDom.domNode?.parentNode?.insertBefore(newVDom.domNode, domNodeChildren[i]);
-        }
-    }
-
-    for (const childKey in keysToRemove)
-    {
-        const childVDom = vdomData[childKey];
-        deleteVDomDataRecursive(childVDom, childKey);
-    }
-
-    // Add or apply attributes after children are created for select element.
-    applyAttributes(domNode as HTMLElement, currentIntrinsicVNode?.props, vNode.props);
-    applyStyle(domNode as HTMLElement, currentIntrinsicVNode?.props.style, vNode.props.style);
-
-    if (newXmlNs)
-    {
-        nsStack.pop();
-    }
-}
-
-// Takes a virtual node and turns it into a DOM node.
-function create(parentNode: Node, vNode: VirtualElement, key: string)
-{
-    const currentVDom = vdomData[key];
-
-    if (hasVElementChanged(currentVDom?.vNode, vNode))
-    {
-        deleteVDomDataRecursive(currentVDom, key);
-    }
-
-    if (isTextNode(vNode))
-    {
-        createTextNode(currentVDom, parentNode, vNode, key);
-    }
-    else if (isClassNode(vNode))
-    {
-        createClassNode(currentVDom, parentNode, vNode, key);
-    }
-    else if (isFunctionalNode(vNode))
-    {
-        createFunctionalNode(parentNode, vNode, key);
-    }
-    else if (isIntrinsicNode(vNode))
-    {
-        createIntrinsicNode(currentVDom, parentNode, vNode, key);
-    }
-}
-
-function processNode(input: VirtualNode): VirtualElement
-{
-    if (typeof(input) === 'object')
-    {
-        return input as VirtualElement;
-    }
-
-    return { textValue: input.toString() }
-}
-
 // This is only intended for internal use where the values that are given are never null!
-function shallowEqual(objA: any, objB: any)
+export function shallowEqual(objA: any, objB: any)
 {
     if (objA === objB)
     {
@@ -505,34 +570,11 @@ function shallowEqual(objA: any, objB: any)
 // This will clear the parent node of all its children.
 export function render(virtualNode: VirtualElement, parent: HTMLElement)
 {
-    nsStack = [];
-    let rootKey = (parent as any).vdomKey;
-    if (!rootKey)
-    {
-        rootKey = `_R${++rootCounter}`;
-        (parent as any).vdomKey = rootKey;
-    }
-    create(parent, virtualNode, rootKey);
+    VDom.current.render(virtualNode, parent);
 }
 
 // Helper function for creating virtual DOM object.
 export function vdom(type: VirtualNodeType, props: any | undefined = undefined, ...children: VirtualNode[]): VirtualElement
 {
-    // Handle getting back an array of children. Eg: [[item1, item2]] instead of just [item1, item2].
-    const flatten = children.flat(Infinity)
-        .filter(child => child != undefined && child !== false)
-        .map(processNode);
-
-    props = props || {};
-
-    if (typeof(type) === 'string')
-    {
-        return { intrinsicType: type, props, children: flatten }
-    }
-    if (type.prototype instanceof ClassComponent)
-    {
-        return { ctor: type as ClassComponentConstructor, children: flatten, props }
-    }
-
-    return { renderNode: type as FunctionalComponent, props, children: flatten };
+    return VDom.current.createVDom(type, props, ...children);
 }

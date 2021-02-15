@@ -1,8 +1,8 @@
-# Simple VDom
+# Simple TSX VDom
 
-A simple implementation of a virtual DOM.
+A simple implementation of a virtual DOM with TSX support.
 
-Supports the expected regular document element types, SVG, functional components, class components and in a small size.
+Supports the expected regular document element types, SVG, functional components, class components, inline styles, extendable via subclassing and in a small size.
 
 This is primarily intended for practice and learning. It uses a simple process for applying differences to the DOM but it aims for something that is easily readable and doesn't use any clever tricks.
 
@@ -11,7 +11,7 @@ This is primarily intended for practice and learning. It uses a simple process f
 ## Install
 To get from npm simply run.
 ```sh
-npm install --save simple-vdom
+npm install --save simple-tsx-vdom
 ```
 
 Alternatively you can download the code and build it yourself with
@@ -23,37 +23,44 @@ And in the `dist` folder will be the Javascript and Typescript typings file.
 Also the whole thing is one Typescript file so it's pretty easy to manually add it to your own source code.
 
 ## Features
-- Small file size (about 1.5kb after compression)
+- Small file size (about 2.0kb after compression)
 - Simple API.
 - No dependencies
-- Pure class components
+- Written in Typescript
+- Pure class components, can be changed to non pure with subclassing.
 - Functional components
 - Diffing process to reduce the number of DOM manipulations.
-- Small RAM footprint
+- Small RAM footprint, vdom nodes are very simple
 - SVG support
+- Inline styles
 
 ## Why?
-I mostly wanted to understand the basics of how a virtual DOM JSX style framework operated so I created one myself. I also wanted it to be feature complete enough to create a simple website with it.
+I mostly wanted to understand the basics of how a virtual DOM TSX style framework operated so I created one myself. I also wanted it to be feature complete enough to create a simple website with it.
 
 ## Example
-Modifiers are functions that perform an action on the state. This means that the state does not need to know about modifiers at all.
-
-In the example below it is shown that creating a function that returns the modifier with the values in the closure is useful.
+Below is a very simple example of rendering a state that contains two numbers. One controlled by the user the other by an interval.
 
 ```typescript
-import { vdom, render, RenderNode } from "../../src";
+import { vdom, render, FunctionalComponent } from "../../src";
 
 // Very basic state management
 interface Store
 {
     readonly counter: number;
+    readonly timeCounter: number;
 }
 
-let store: Store = { counter: 0 }
+let store: Store = { counter: 0, timeCounter: 0 }
 
 function changeCounter(diff: number)
 {
     store = { ...store, counter: store.counter + diff };
+    renderApp();
+}
+
+function incTimeCounter()
+{
+    store = { ...store, timeCounter: store.timeCounter + 1 };
     renderApp();
 }
 
@@ -62,9 +69,10 @@ interface AppProps
 {
     readonly store: Store;
 }
-const App: RenderNode = (props: AppProps) =>
+const App: FunctionalComponent = (props: AppProps) =>
     <main>
         <h1>Simple VDom Counter Example</h1>
+        <div>Time Counter: {props.store.timeCounter}</div>
         <div>Counter: {props.store.counter}</div>
         <button onclick={() => changeCounter(-1)}>Decrement</button>
         <button onclick={() => changeCounter(1)}>Increment</button>
@@ -80,6 +88,8 @@ function renderApp()
 {
     render(<App store={store} />, rootElement);
 }
+
+setInterval(incTimeCounter, 100);
 ```
 
 ## License

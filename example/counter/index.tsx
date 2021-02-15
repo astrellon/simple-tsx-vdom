@@ -4,13 +4,20 @@ import { vdom, render, FunctionalComponent } from "../../src";
 interface Store
 {
     readonly counter: number;
+    readonly timeCounter: number;
 }
 
-let store: Store = { counter: 0 }
+let store: Store = { counter: 0, timeCounter: 0 }
 
 function changeCounter(diff: number)
 {
     store = { ...store, counter: store.counter + diff };
+    renderApp();
+}
+
+function incTimeCounter()
+{
+    store = { ...store, timeCounter: store.timeCounter + 1 };
     renderApp();
 }
 
@@ -22,6 +29,7 @@ interface AppProps
 const App: FunctionalComponent = (props: AppProps) =>
     <main>
         <h1>Simple VDom Counter Example</h1>
+        <div>Time Counter: {props.store.timeCounter}</div>
         <div>Counter: {props.store.counter}</div>
         <button onclick={() => changeCounter(-1)}>Decrement</button>
         <button onclick={() => changeCounter(1)}>Increment</button>
@@ -37,3 +45,5 @@ function renderApp()
 {
     render(<App store={store} />, rootElement);
 }
+
+setInterval(incTimeCounter, 100);

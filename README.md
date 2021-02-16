@@ -24,14 +24,13 @@ And in the `dist` folder will be the Javascript and Typescript typings file.
 Also the whole thing is one Typescript file so it's pretty easy to manually add it to your own source code.
 
 ## Features
-- Small file size (about 2.0kb after compression)
-- Simple API.
-- No dependencies
-- Written in Typescript
+- Small file size (just over 2kb after compression)
+- Simple API, controlled via a class that can be subclassed for fine grain control.
+- No dependencies.
+- Written in Typescript.
 - Pure class components, can be changed to non pure with subclassing.
-- Functional components
+- Pure functional components.
 - Diffing process to reduce the number of DOM manipulations.
-- Small RAM footprint, vdom nodes are very simple
 - SVG support
 - Inline styles
 

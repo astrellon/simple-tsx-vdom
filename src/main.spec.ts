@@ -55,7 +55,7 @@ test('styles', () =>
     document.body.innerHTML = '<main id="root"></main>';
     const rootEl = document.getElementById('root');
     const vdom1 = vdom('main', {} ,
-        vdom('div', {id: 'div1', style: {backgroundColor: 'red'}}, 'Hello'),
+        vdom('div', {id: 'div1', style: {'background-color': 'red'}}, 'Hello'),
         vdom('div', {id: 'div2', style: {margin: '5px'}}, 'Whats up?')
     );
 
@@ -79,7 +79,7 @@ test('styles', () =>
     expect(div2El.style.margin).toBe('5px');
 
     const vdom2 = vdom('main', {} ,
-        vdom('div', {id: 'div1', style: {backgroundColor: 'green', margin: '7px'}}, 'Hello'),
+        vdom('div', {id: 'div1', style: {'background-color': 'green', margin: '7px'}}, 'Hello'),
         vdom('div', {id: 'div2', style: {}}, 'Whats up?')
     );
 

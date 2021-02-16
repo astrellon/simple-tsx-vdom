@@ -17,7 +17,7 @@ export const PillButton:FunctionalComponent<Props> = (props: Props) =>
     const combinedClassName = `pill-button ${props.class || ''}`;
 
     return <button class={combinedClassName} onclick={onclick}>
-        { icon && <Icon type={icon} /> }
+        { icon && <Icon size={20} type={icon} /> }
         <span class='pill-button__label'>{label}</span>
     </button>
 }

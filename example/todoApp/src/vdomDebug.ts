@@ -1,15 +1,23 @@
-import { VDom, VirtualTextElement, VirtualIntrinsicElement, VirtualFunctionalElement, VirtualClassElement, VDomData } from "../../../src";
+import { VDom, VirtualTextElement, VirtualIntrinsicElement, VirtualFunctionalElement, VirtualClassElement, VirtualElement, ClassComponentConstructor, FunctionalComponent, ComponentProperties, VDomData, IntrinsicAttributes, IntrinsicEventListeners, IntrinsicStyles, IntrinsicProperties, DiffResult, Props } from "../../../src";
 
 export class VDomStats
 {
-    public attributesSet: number = 0;
-    public attributesRemoved: number = 0;
-    public stylesSet: number = 0;
-    public stylesRemoved: number = 0;
-    public intrinsicNodesCalled: { [nodeType: string]: number } = {};
-    public classComponentsCalled: { [classCompName: string]: number } = {};
-    public functionalComponentsCalled: { [funcCompName: string]: number } = {};
-    public textNodesCalled: number = 0;
+    public attributesRemoved: { [attribute: string]: number } = {};
+    public attributesSet: { [attribute: string]: number } = {};
+    public styleRemoved: { [style: string]: number } = {};
+    public styleSet: { [style: string]: number } = {};
+    public eventListenerRemoved: { [eventType: string]: number } = {};
+    public eventListenerSet: { [eventType: string]: number } = {};
+    public propertiesRemoved: { [prop: string]: number } = {};
+    public propertiesSet: { [prop: string]: number } = {};
+    public intrinsicNodesCreated: { [nodeType: string]: number } = {};
+    public intrinsicNodesRendered: { [nodeType: string]: number } = {};
+    public classComponentsCreated: { [classCompName: string]: number } = {};
+    public classComponentsRendered: { [classCompName: string]: number } = {};
+    public functionalComponentsCreated: { [funcCompName: string]: number } = {};
+    public functionalComponentsRendered: { [funcCompName: string]: number } = {};
+    public textNodesCreated: number = 0;
+    public textNodesRendered: number = 0;
 }
 
 function incField(obj: {[key: string]: number}, key: string)
@@ -24,6 +32,14 @@ function incField(obj: {[key: string]: number}, key: string)
     }
 }
 
+function applyChanges(obj: {[key: string]: number}, props: Props)
+{
+    for (const prop in props)
+    {
+        incField(obj, prop);
+    }
+}
+
 export class VDomDebug extends VDom
 {
     public stats: VDomStats = new VDomStats();
@@ -33,61 +49,84 @@ export class VDomDebug extends VDom
         this.stats = new VDomStats();
     }
 
-    public setAttribute(htmlElement: HTMLElement, attribute: string, value: string | EventListener)
+    public applyAttributes(htmlElement: HTMLElement, currentProps: IntrinsicAttributes | undefined, newProps: IntrinsicAttributes | undefined): DiffResult
     {
-        if (!this.isValidAttribute(attribute))
-        {
-            return;
-        }
-
-        super.setAttribute(htmlElement, attribute, value);
-        this.stats.attributesSet++;
+        const diff = super.applyAttributes(htmlElement, currentProps, newProps);
+        applyChanges(this.stats.attributesRemoved, diff.remove);
+        applyChanges(this.stats.attributesSet, diff.add);
+        return diff;
     }
 
-    public removeAttribute(htmlElement: HTMLElement, attribute: string, listener?: EventListener)
+    public applyStyle(htmlElement: HTMLElement, currentStyle: IntrinsicStyles | undefined, newStyle: IntrinsicStyles | undefined): DiffResult
     {
-        if (!this.isValidAttribute(attribute))
-        {
-            return;
-        }
-
-        super.removeAttribute(htmlElement, attribute, listener);
-        this.stats.attributesRemoved++;
+        const diff = super.applyStyle(htmlElement, currentStyle, newStyle);
+        applyChanges(this.stats.styleRemoved, diff.remove);
+        applyChanges(this.stats.styleSet, diff.add);
+        return diff;
     }
 
-    public createIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualIntrinsicElement, key: string)
+    public applyEventListeners(htmlElement: HTMLElement, currentListeners: IntrinsicEventListeners | undefined, newListeners: IntrinsicEventListeners | undefined): DiffResult
     {
-        super.createIntrinsicNode(currentVDom, parentNode, vNode, key);
-        incField(this.stats.intrinsicNodesCalled, vNode.intrinsicType);
+        const diff = super.applyEventListeners(htmlElement, currentListeners, newListeners);
+        applyChanges(this.stats.eventListenerRemoved, diff.remove);
+        applyChanges(this.stats.eventListenerSet, diff.add);
+        return diff;
     }
 
-    public createFunctionalNode(parentNode: Node, vNode: VirtualFunctionalElement, key: string)
+    public applyProperties(htmlElement: HTMLElement, currentProps: IntrinsicProperties | undefined, newProps: IntrinsicProperties | undefined): DiffResult
     {
-        super.createFunctionalNode(parentNode, vNode, key);
-        incField(this.stats.functionalComponentsCalled, vNode.renderNode.name);
+        const diff = super.applyProperties(htmlElement, currentProps, newProps);
+        applyChanges(this.stats.propertiesRemoved, diff.remove);
+        applyChanges(this.stats.propertiesSet, diff.add);
+        return diff;
     }
 
-    public createClassNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualClassElement, key: string)
+    public createTextNode(textValue: string): VirtualTextElement
     {
-        super.createClassNode(currentVDom, parentNode, vNode, key);
-        incField(this.stats.classComponentsCalled, vNode.ctor.name);
+        this.stats.textNodesCreated++;
+        return super.createTextNode(textValue);
     }
 
-    public createTextNode(currentVDom: VDomData | undefined, parentNode: Node, vNode: VirtualTextElement, key: string)
+    public createIntrinsicNode(intrinsicType: string, inputProps: Props, children: VirtualElement[]): VirtualIntrinsicElement
     {
-        super.createTextNode(currentVDom, parentNode, vNode, key);
-        this.stats.textNodesCalled++;
+        incField(this.stats.intrinsicNodesCreated, intrinsicType);
+        return super.createIntrinsicNode(intrinsicType, inputProps, children);
     }
 
-    public removeStyle(htmlElement: HTMLElement, prop: string)
+    public createClassNode(ctor: ClassComponentConstructor, inputProps: ComponentProperties, children: VirtualElement[]): VirtualClassElement
     {
-        super.removeStyle(htmlElement, prop);
-        this.stats.stylesRemoved++;
+        incField(this.stats.classComponentsCreated, ctor.name);
+        return super.createClassNode(ctor, inputProps, children);
     }
-    public setStyle(htmlElement: HTMLElement, prop: string, value: any)
+
+    public createFunctionalNode(renderNode: FunctionalComponent, inputProps: ComponentProperties, children: VirtualElement[]): VirtualFunctionalElement
     {
-        super.setStyle(htmlElement, prop, value);
-        this.stats.stylesSet++;
+        incField(this.stats.functionalComponentsCreated, renderNode.name);
+        return super.createFunctionalNode(renderNode, inputProps, children);
+    }
+
+    public renderTextNode(currentVDom: VDomData | undefined, parentNode: Node, vNode: VirtualTextElement, key: string)
+    {
+        this.stats.textNodesRendered++;
+        super.renderTextNode(currentVDom, parentNode, vNode, key);
+    }
+
+    public renderFunctionalNode(parentNode: Node, vNode: VirtualFunctionalElement, key: string)
+    {
+        incField(this.stats.functionalComponentsRendered, vNode.func.name);
+        super.renderFunctionalNode(parentNode, vNode, key);
+    }
+
+    public renderClassNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualClassElement, key: string)
+    {
+        incField(this.stats.classComponentsRendered, vNode.ctor.name);
+        super.renderClassNode(currentVDom, parentNode, vNode, key);
+    }
+
+    public renderIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualIntrinsicElement, key: string)
+    {
+        incField(this.stats.intrinsicNodesRendered, vNode.nodeName);
+        super.renderIntrinsicNode(currentVDom, parentNode, vNode, key);
     }
 }
 

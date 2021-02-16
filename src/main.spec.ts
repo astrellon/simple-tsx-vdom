@@ -1,4 +1,9 @@
-import { vdom, render, ClassComponent, VirtualElement } from ".";
+import { vdom, render, ClassComponent, VirtualElement, VDom } from ".";
+
+beforeEach(() =>
+{
+    VDom.current.clear();
+});
 
 test('basic', () =>
 {
@@ -958,4 +963,25 @@ test('props check', () =>
 
     expect(node2El.nodeName).toBe('SPAN');
     expect(node2El.innerHTML).toBe('TestNode: Bar 20');
+});
+
+test('clear', () =>
+{
+    document.body.innerHTML = '<main id="root"></main>';
+    const rootEl = document.getElementById('root');
+
+    if (rootEl == null) { fail('Root element not created!'); }
+
+    const vdom1 = vdom('div', {class: 'div-class'},
+        vdom('strong', {}, 'Bold Text'),
+        vdom('span', {}, 'Normal Text')
+        );
+
+    render(vdom1, rootEl);
+
+    expect(document.body.innerHTML).toBe('<main id="root"><div class="div-class"><strong>Bold Text</strong><span>Normal Text</span></div></main>');
+
+    VDom.current.clear();
+
+    expect(document.body.innerHTML).toBe('<main id="root"></main>');
 });

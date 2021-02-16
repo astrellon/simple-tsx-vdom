@@ -205,8 +205,8 @@ export abstract class ClassComponent<TProps extends Props = Props>
 export class VDom
 {
     // Static fields
-    // Keeps track of number of unique parent root nodes that are rendered into.
-    static rootNodeCounter: number = 0;
+    static readonly rootKey: string = 'R';
+
     // Keeps track of the current vdom that will be used by the default exported vdom/render functions.
     static current: VDom = new VDom();
 
@@ -220,13 +220,7 @@ export class VDom
     public render(virtualNode: VirtualElement, parent: HTMLElement)
     {
         this.nsStack = [];
-        let rootKey = (parent as any).vdomKey;
-        if (!rootKey)
-        {
-            rootKey = `_R${++VDom.rootNodeCounter}`;
-            (parent as any).vdomKey = rootKey;
-        }
-        this.renderDom(parent, virtualNode, rootKey);
+        this.renderDom(parent, virtualNode, VDom.rootKey);
     }
 
     //// Create virtual DOM elements
@@ -255,6 +249,14 @@ export class VDom
         }
 
         throw new Error('Unknown virtual node type');
+    }
+
+    // Clears the virtual DOM, deleting all created DOM elements along the way.
+    public clear()
+    {
+        this.deleteVDomData(this.vdomData[VDom.rootKey], VDom.rootKey);
+        this.vdomData = {};
+        this.nsStack = [];
     }
 
     // Handle child virtual nodes which will either be a virtual element (already gone through createVDom) or is a plain string or number.

@@ -204,10 +204,16 @@ export abstract class ClassComponent<TProps extends Props = Props>
  */
 export class VDom
 {
+    // Static fields
+    // Keeps track of number of unique parent root nodes that are rendered into.
     static rootNodeCounter: number = 0;
+    // Keeps track of the current vdom that will be used by the default exported vdom/render functions.
     static current: VDom = new VDom();
 
+    // Keeps track of all the virtual DOM information.
     public vdomData: VDomDataStore = {};
+    // Namespace stack, keeps track of the current (beyond the empty default) XML namespace to use.
+    // This is used for SVG support.
     public nsStack: string[] = [];
 
     // The main render function which turns a virtual element into DOM elements.
@@ -264,6 +270,7 @@ export class VDom
         return this.createTextNode(input.toString());
     }
 
+    // A very basic text node.
     public createTextNode(textValue: string): VirtualTextElement
     {
         return { textValue }
@@ -339,78 +346,6 @@ export class VDom
             props: inputProps,
             key
         }
-    }
-
-    //// Handling DOM attributes
-
-    public applyAttributes(htmlElement: HTMLElement, currentProps: IntrinsicAttributes | undefined, newProps: IntrinsicAttributes | undefined): DiffResult
-    {
-        const diff = this.diffProps(currentProps, newProps);
-
-        for (const prop in diff.remove)
-        {
-            htmlElement.removeAttribute(prop);
-        }
-        for (const prop in diff.add)
-        {
-            htmlElement.setAttribute(prop, diff.add[prop]);
-        }
-
-        return diff;
-    }
-
-    //// Handle setting inline DOM CSS styles.
-
-    public applyStyle(htmlElement: HTMLElement, currentStyle: IntrinsicStyles | undefined, newStyle: IntrinsicStyles | undefined): DiffResult
-    {
-        const diff = this.diffProps(currentStyle, newStyle);
-
-        for (const prop in diff.remove)
-        {
-            htmlElement.style.removeProperty(prop);
-        }
-        for (const prop in diff.add)
-        {
-            htmlElement.style.setProperty(prop, diff.add[prop]);
-        }
-
-        return diff;
-    }
-
-    //// Handle setting event listeners on DOM elements.
-
-    public applyEventListeners(htmlElement: HTMLElement, currentListeners: IntrinsicEventListeners | undefined, newListeners: IntrinsicEventListeners | undefined): DiffResult
-    {
-        const diff = this.diffProps(currentListeners, newListeners);
-
-        for (const eventType in diff.remove)
-        {
-            htmlElement.removeEventListener(eventType, diff.remove[eventType]);
-        }
-        for (const eventType in diff.add)
-        {
-            htmlElement.addEventListener(eventType, diff.add[eventType]);
-        }
-
-        return diff;
-    }
-
-    //// Handle setting properties on DOM elements.
-
-    public applyProperties(htmlElement: HTMLElement, currentProps: IntrinsicProperties | undefined, newProps: IntrinsicProperties | undefined): DiffResult
-    {
-        const diff = this.diffProps(currentProps, newProps);
-
-        for (const prop in diff.remove)
-        {
-            (htmlElement as any)[prop] = undefined;
-        }
-        for (const prop in diff.add)
-        {
-            (htmlElement as any)[prop] = diff.add[prop];
-        }
-
-        return diff;
     }
 
     //// Processing virtual elements into actual DOM elements.
@@ -647,6 +582,79 @@ export class VDom
         }
     }
 
+    //// Handling DOM attributes
+
+    public applyAttributes(htmlElement: HTMLElement, currentProps: IntrinsicAttributes | undefined, newProps: IntrinsicAttributes | undefined): DiffResult
+    {
+        const diff = this.diffProps(currentProps, newProps);
+
+        for (const prop in diff.remove)
+        {
+            htmlElement.removeAttribute(prop);
+        }
+        for (const prop in diff.add)
+        {
+            htmlElement.setAttribute(prop, diff.add[prop]);
+        }
+
+        return diff;
+    }
+
+    //// Handle setting inline DOM CSS styles.
+
+    public applyStyle(htmlElement: HTMLElement, currentStyle: IntrinsicStyles | undefined, newStyle: IntrinsicStyles | undefined): DiffResult
+    {
+        const diff = this.diffProps(currentStyle, newStyle);
+
+        for (const prop in diff.remove)
+        {
+            htmlElement.style.removeProperty(prop);
+        }
+        for (const prop in diff.add)
+        {
+            htmlElement.style.setProperty(prop, diff.add[prop]);
+        }
+
+        return diff;
+    }
+
+    //// Handle setting event listeners on DOM elements.
+
+    public applyEventListeners(htmlElement: HTMLElement, currentListeners: IntrinsicEventListeners | undefined, newListeners: IntrinsicEventListeners | undefined): DiffResult
+    {
+        const diff = this.diffProps(currentListeners, newListeners);
+
+        for (const eventType in diff.remove)
+        {
+            htmlElement.removeEventListener(eventType, diff.remove[eventType]);
+        }
+        for (const eventType in diff.add)
+        {
+            htmlElement.addEventListener(eventType, diff.add[eventType]);
+        }
+
+        return diff;
+    }
+
+    //// Handle setting properties on DOM elements.
+
+    public applyProperties(htmlElement: HTMLElement, currentProps: IntrinsicProperties | undefined, newProps: IntrinsicProperties | undefined): DiffResult
+    {
+        const diff = this.diffProps(currentProps, newProps);
+
+        for (const prop in diff.remove)
+        {
+            (htmlElement as any)[prop] = undefined;
+        }
+        for (const prop in diff.add)
+        {
+            (htmlElement as any)[prop] = diff.add[prop];
+        }
+
+        return diff;
+    }
+
+
     // Basic process for checking what has changed between current and new props.
     public diffProps(currentProps: Props | undefined, newProps: Props = {}): DiffResult
     {
@@ -735,7 +743,6 @@ const processComponentProps = (inputProps: ComponentProperties) =>
     }
     return inputProps;
 }
-
 
 // This is only intended for internal use where the values that are given are never null!
 export const shallowEqual = (objA: any, objB: any) =>

@@ -19,10 +19,10 @@ export class TodoItemView extends ClassComponent<Props>
         return <div>
             <strong>{item.text}</strong>
             <ButtonGroup>
-                <PillButton onclick={this.removeItem} label='Remove' />
+                <PillButton onclick={this.removeItem} icon='remove' label='Remove' />
 
-                {index > 0 && <PillButton onclick={this.moveUp} label='Up' />}
-                {index < maxIndex - 1 && <PillButton onclick={this.moveDown} label='Down' />}
+                {index > 0 && <PillButton onclick={this.moveUp} icon='up' label='Up' />}
+                {index < maxIndex - 1 && <PillButton onclick={this.moveDown} icon='down' label='Down' />}
             </ButtonGroup>
         </div>
     }

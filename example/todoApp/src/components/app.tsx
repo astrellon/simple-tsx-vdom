@@ -24,7 +24,7 @@ export const App: FunctionalComponent<Props> = (props: Props) =>
     return <main>
         <h1>Todo App</h1>
         <p>
-            <PillButton onclick={addItem} label='Add Item' />
+            <PillButton onclick={addItem} icon='add' label='Add Item' />
         </p>
         <p>
             <TodoItemList items={state.todoItems} />

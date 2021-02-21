@@ -89,6 +89,47 @@ export interface VirtualTextElement
     readonly textValue: string;
 }
 
+//// Interface for DOM
+
+export interface DomNodeList
+{
+    readonly length: number;
+    item(index: number): DomNode;
+}
+
+export interface DomNode
+{
+    parentElement: DomElement | null;
+}
+export interface DomText extends DomNode
+{
+    nodeValue: string | null;
+}
+export interface DomDocument
+{
+    createElement: (type: string) => DomElement;
+    createElementNS: (namespace: any, type: string) => DomElement;
+    createTextNode: (text: string) => DomText;
+}
+export interface DomInlineStyle
+{
+    setProperty: (key: string, value: any) => void;
+    removeProperty: (key: string) => void;
+}
+export interface DomElement extends DomNode
+{
+    setAttribute: (qualifiedName: string, value: string) => void;
+    removeAttribute: (qualifiedName: string) => void;
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;
+    removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
+    appendChild: (node: any) => any;
+    removeChild: (node: any) => any;
+    childNodes: DomNodeList;
+    style: DomInlineStyle;
+
+    [key: string]: any;
+}
+
 //// Internal Diffing Types
 
 interface ObjectDiff
@@ -104,7 +145,7 @@ export interface DiffResult
 
 export interface VDomData
 {
-    readonly domNode?: Node;
+    readonly domNode?: DomNode;
     readonly vNode: VirtualElement;
     readonly instance?: ClassComponent;
 }
@@ -171,7 +212,7 @@ export abstract class ClassComponent<TProps extends Props = Props>
         const vdomNode = this.vdom.vdomData[this.vdomKey];
         if (vdomNode)
         {
-            this.vdom.renderDom((vdomNode.domNode as Node).parentElement as Node, this.render(), this.vdomKey);
+            this.vdom.renderDom((vdomNode.domNode as DomNode).parentElement as DomElement, this.render(), this.vdomKey);
         }
     }
 }
@@ -208,7 +249,7 @@ export class VDom
     static readonly rootKey: string = 'R';
 
     // Keeps track of the current vdom that will be used by the default exported vdom/render functions.
-    static current: VDom = new VDom();
+    static current: VDom;
 
     // Keeps track of all the virtual DOM information.
     public vdomData: VDomDataStore = {};
@@ -216,8 +257,15 @@ export class VDom
     // This is used for SVG support.
     public nsStack: string[] = [];
 
+    public doc: DomDocument;
+
+    constructor (doc: DomDocument)
+    {
+        this.doc = doc;
+    }
+
     // The main render function which turns a virtual element into DOM elements.
-    public render(virtualNode: VirtualElement, parent: HTMLElement)
+    public render(virtualNode: VirtualElement, parent: DomElement)
     {
         this.nsStack = [];
         this.renderDom(parent, virtualNode, VDom.rootKey);
@@ -353,7 +401,7 @@ export class VDom
     //// Processing virtual elements into actual DOM elements.
 
     // Takes a virtual element and turns it into a DOM node.
-    public renderDom(parentNode: Node, vNode: VirtualElement, key: string)
+    public renderDom(parentNode: DomElement, vNode: VirtualElement, key: string)
     {
         const currentVDom = this.vdomData[key];
 
@@ -410,7 +458,7 @@ export class VDom
             }
         }
 
-        removeHtmlNode(vdomNode.domNode);
+        removeDomElement(vdomNode.domNode);
         delete this.vdomData[key];
     }
 
@@ -441,23 +489,23 @@ export class VDom
     }
 
     // Render a text node, either create it or update the existing one.
-    public renderTextNode(currentVDom: VDomData | undefined, parentNode: Node, vNode: VirtualTextElement, key: string)
+    public renderTextNode(currentVDom: VDomData | undefined, parentNode: DomElement, vNode: VirtualTextElement, key: string)
     {
         if (!currentVDom)
         {
-            const domNode = document.createTextNode(vNode.textValue);
+            const domNode = this.doc.createTextNode(vNode.textValue);
             parentNode.appendChild(domNode);
             this.vdomData[key] = { domNode, vNode }
         }
         else if ((currentVDom.vNode as VirtualTextElement).textValue !== vNode.textValue)
         {
-            (currentVDom.domNode as Node).nodeValue = vNode.textValue;
+            (currentVDom.domNode as DomText).nodeValue = vNode.textValue;
             this.vdomData[key] = { domNode: currentVDom.domNode, vNode }
         }
     }
 
     // Render a functional node.
-    public renderFunctionalNode(parentNode: Node, vNode: VirtualFunctionalElement, key: string)
+    public renderFunctionalNode(parentNode: DomElement, vNode: VirtualFunctionalElement, key: string)
     {
         const functionalChildKey = createComponentKey(key);
         this.renderDom(parentNode, vNode.func(vNode.props, vNode.children), functionalChildKey);
@@ -465,7 +513,7 @@ export class VDom
     }
 
     // Render a class node, mount it if it's new and checks if the props have changed and ignore further rendering.
-    public renderClassNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualClassElement, key: string)
+    public renderClassNode(currentVDom: VDomData, parentNode: DomElement, vNode: VirtualClassElement, key: string)
     {
         let inst = currentVDom?.instance;
         const isNew = !inst;
@@ -490,7 +538,7 @@ export class VDom
     }
 
     // Renders an intrinsic node, either creates or updates it along with attributes, event listeners, inline styles or input properties.
-    public renderIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualIntrinsicElement, key: string)
+    public renderIntrinsicNode(currentVDom: VDomData, parentNode: DomElement, vNode: VirtualIntrinsicElement, key: string)
     {
         const currentIntrinsicVNode = currentVDom?.vNode as VirtualIntrinsicElement;
 
@@ -502,28 +550,28 @@ export class VDom
 
         const newNode = !currentVDom || currentIntrinsicVNode.nodeName !== vNode.nodeName;
 
-        let domNode: Node;
+        let domNode: DomElement;
         if (newNode)
         {
             if (currentVDom)
             {
-                removeHtmlNode(currentVDom.domNode);
+                removeDomElement(currentVDom.domNode);
             }
 
             const stackXmlNs = this.nsStack[this.nsStack.length - 1];
             if (stackXmlNs)
             {
-                domNode = document.createElementNS(stackXmlNs, vNode.nodeName);
+                domNode = this.doc.createElementNS(stackXmlNs, vNode.nodeName);
             }
             else
             {
-                domNode = document.createElement(vNode.nodeName);
+                domNode = this.doc.createElement(vNode.nodeName);
             }
             parentNode.appendChild(domNode);
         }
         else
         {
-            domNode = currentVDom.domNode as Node;
+            domNode = currentVDom.domNode as DomElement;
         }
 
         this.vdomData[key] = { domNode, vNode };
@@ -531,10 +579,10 @@ export class VDom
         this.renderChildrenNodes(currentIntrinsicVNode, domNode, vNode, key);
 
         // Add or apply attributes after children are created for select element.
-        this.applyAttributes(domNode as HTMLElement, currentIntrinsicVNode?.attributes, vNode.attributes);
-        this.applyStyle(domNode as HTMLElement, currentIntrinsicVNode?.style, vNode.style);
-        this.applyEventListeners(domNode as HTMLElement, currentIntrinsicVNode?.listeners, vNode.listeners);
-        this.applyProperties(domNode as HTMLElement, currentIntrinsicVNode?.properties, vNode.properties);
+        this.applyAttributes(domNode, currentIntrinsicVNode?.attributes, vNode.attributes);
+        this.applyStyle(domNode, currentIntrinsicVNode?.style, vNode.style);
+        this.applyEventListeners(domNode, currentIntrinsicVNode?.listeners, vNode.listeners);
+        this.applyProperties(domNode, currentIntrinsicVNode?.properties, vNode.properties);
 
         if (newXmlNs)
         {
@@ -542,7 +590,7 @@ export class VDom
         }
     }
 
-    public renderChildrenNodes(currentIntrinsicVNode: VirtualIntrinsicElement | undefined, domNode: Node, vNode: VirtualIntrinsicElement, key: string)
+    public renderChildrenNodes(currentIntrinsicVNode: VirtualIntrinsicElement | undefined, domNode: DomElement, vNode: VirtualIntrinsicElement, key: string)
     {
         const previousChildren = currentIntrinsicVNode?.children;
         const keysToRemove: { [key: string]: VirtualElement } = {};
@@ -559,7 +607,7 @@ export class VDom
             }
         }
 
-        const domNodeChildren = domNode.childNodes as NodeListOf<ChildNode>;
+        const domNodeChildren = domNode.childNodes;
         for (let i = 0; i < vNode.children.length; i++)
         {
             const child = vNode.children[i];
@@ -571,9 +619,9 @@ export class VDom
                 this.vdomData[createComponentKey(childKey)] :
                 this.vdomData[childKey];
 
-            if (domNodeChildren[i] !== newVDom.domNode)
+            if (domNodeChildren.item(i) !== newVDom.domNode)
             {
-                newVDom.domNode?.parentNode?.insertBefore(newVDom.domNode, domNodeChildren[i]);
+                newVDom.domNode?.parentElement?.insertBefore(newVDom.domNode, domNodeChildren.item(i));
             }
         }
 
@@ -586,17 +634,17 @@ export class VDom
 
     //// Handling DOM attributes
 
-    public applyAttributes(htmlElement: HTMLElement, currentProps: IntrinsicAttributes | undefined, newProps: IntrinsicAttributes | undefined): DiffResult
+    public applyAttributes(domElement: DomElement, currentProps: IntrinsicAttributes | undefined, newProps: IntrinsicAttributes | undefined): DiffResult
     {
         const diff = this.diffProps(currentProps, newProps);
 
         for (const prop in diff.remove)
         {
-            htmlElement.removeAttribute(prop);
+            domElement.removeAttribute(prop);
         }
         for (const prop in diff.add)
         {
-            htmlElement.setAttribute(prop, diff.add[prop]);
+            domElement.setAttribute(prop, diff.add[prop]);
         }
 
         return diff;
@@ -604,17 +652,17 @@ export class VDom
 
     //// Handle setting inline DOM CSS styles.
 
-    public applyStyle(htmlElement: HTMLElement, currentStyle: IntrinsicStyles | undefined, newStyle: IntrinsicStyles | undefined): DiffResult
+    public applyStyle(domElement: DomElement, currentStyle: IntrinsicStyles | undefined, newStyle: IntrinsicStyles | undefined): DiffResult
     {
         const diff = this.diffProps(currentStyle, newStyle);
 
         for (const prop in diff.remove)
         {
-            htmlElement.style.removeProperty(prop);
+            domElement.style.removeProperty(prop);
         }
         for (const prop in diff.add)
         {
-            htmlElement.style.setProperty(prop, diff.add[prop]);
+            domElement.style.setProperty(prop, diff.add[prop]);
         }
 
         return diff;
@@ -622,17 +670,17 @@ export class VDom
 
     //// Handle setting event listeners on DOM elements.
 
-    public applyEventListeners(htmlElement: HTMLElement, currentListeners: IntrinsicEventListeners | undefined, newListeners: IntrinsicEventListeners | undefined): DiffResult
+    public applyEventListeners(domElement: DomElement, currentListeners: IntrinsicEventListeners | undefined, newListeners: IntrinsicEventListeners | undefined): DiffResult
     {
         const diff = this.diffProps(currentListeners, newListeners);
 
         for (const eventType in diff.remove)
         {
-            htmlElement.removeEventListener(eventType, diff.remove[eventType]);
+            domElement.removeEventListener(eventType, diff.remove[eventType]);
         }
         for (const eventType in diff.add)
         {
-            htmlElement.addEventListener(eventType, diff.add[eventType]);
+            domElement.addEventListener(eventType, diff.add[eventType]);
         }
 
         return diff;
@@ -640,17 +688,17 @@ export class VDom
 
     //// Handle setting properties on DOM elements.
 
-    public applyProperties(htmlElement: HTMLElement, currentProps: IntrinsicProperties | undefined, newProps: IntrinsicProperties | undefined): DiffResult
+    public applyProperties(domElement: DomElement, currentProps: IntrinsicProperties | undefined, newProps: IntrinsicProperties | undefined): DiffResult
     {
         const diff = this.diffProps(currentProps, newProps);
 
         for (const prop in diff.remove)
         {
-            (htmlElement as any)[prop] = undefined;
+            domElement[prop] = undefined;
         }
         for (const prop in diff.add)
         {
-            (htmlElement as any)[prop] = diff.add[prop];
+            domElement[prop] = diff.add[prop];
         }
 
         return diff;
@@ -729,11 +777,11 @@ const isFunctionalNode = (vNode: VirtualElement): vNode is VirtualFunctionalElem
     return !!(vNode as VirtualFunctionalElement).func;
 }
 
-const removeHtmlNode = (htmlElement?: Node) =>
+const removeDomElement = (domElement?: DomNode) =>
 {
-    if (!htmlElement) return;
+    if (!domElement) return;
 
-    htmlElement.parentElement?.removeChild(htmlElement);
+    domElement.parentElement?.removeChild(domElement);
 }
 
 const processComponentProps = (inputProps: ComponentProperties) =>
@@ -776,7 +824,7 @@ export const shallowEqual = (objA: any, objB: any) =>
 
 // Renders the given virtualNode into the given parent node.
 // This will clear the parent node of all its children.
-export function render(virtualNode: VirtualElement, parent: HTMLElement)
+export function render(virtualNode: VirtualElement, parent: DomElement)
 {
     VDom.current.render(virtualNode, parent);
 }
@@ -785,4 +833,9 @@ export function render(virtualNode: VirtualElement, parent: HTMLElement)
 export function vdom(type: VirtualNodeType, props: any | undefined = undefined, ...children: ChildVirtualNode[]): VirtualElement
 {
     return VDom.current.createVDom(type, props, ...children);
+}
+
+if (typeof(document) !== 'undefined')
+{
+    VDom.current = new VDom(document);
 }

@@ -257,8 +257,10 @@ export class VDom
     // This is used for SVG support.
     public nsStack: string[] = [];
 
+    // The document that the virtual dom is apart of.
     public doc: DomDocument;
 
+    // Create the VDom with the given document.
     constructor (doc: DomDocument)
     {
         this.doc = doc;

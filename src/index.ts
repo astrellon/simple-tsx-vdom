@@ -100,6 +100,7 @@ export interface DomNodeList
 export interface DomNode
 {
     parentElement: DomElement | null;
+    nodeType: number;
 }
 export interface DomText extends DomNode
 {
@@ -271,6 +272,11 @@ export class VDom
     {
         this.nsStack = [];
         this.renderDom(parent, virtualNode, VDom.rootKey);
+    }
+
+    public hydrate(virtualNode: VirtualElement, parent: HTMLElement)
+    {
+        this.hydrateDom(parent, virtualNode, VDom.rootKey, 0);
     }
 
     //// Create virtual DOM elements
@@ -634,6 +640,78 @@ export class VDom
         }
     }
 
+    //// Hydration
+
+    // Hydration is the process of linking up existing elements with the virtual DOM.
+    // This allows us to create the DOM somewhere else (like on the server) and then reuse
+    // the elements rather than having to blow away the work done by the browser and server.
+    // Most important on lower-powered devices. In someways it does mean a larger initial payload because
+    // it'll contain the HTML, but it also means that the browser should be able to display the initial payload
+    // before the scripts have finished loading/parsing.
+    public hydrateDom(parentNode: DomElement, vNode: VirtualElement, key: string, index: number)
+    {
+        if (isTextNode(vNode))
+        {
+            this.hydrateTextNode(parentNode, vNode, key, index);
+        }
+        else if (isClassNode(vNode))
+        {
+            this.hydrateClassNode(parentNode, vNode, key, index);
+        }
+        else if (isFunctionalNode(vNode))
+        {
+            this.hydrateFunctionalNode(parentNode, vNode, key, index);
+        }
+        else if (isIntrinsicNode(vNode))
+        {
+            this.hydrateIntrinsicNode(parentNode, vNode, key, index);
+        }
+    }
+
+    public hydrateTextNode(parentNode: DomElement, vNode: VirtualTextElement, key: string, index: number)
+    {
+        const domNode = parentNode.childNodes.item(index);
+        this.vdomData[key] = { domNode, vNode };
+    }
+
+    public hydrateFunctionalNode(parentNode: DomElement, vNode: VirtualFunctionalElement, key: string, index: number)
+    {
+        const functionalChildKey = createComponentKey(key);
+        this.hydrateDom(parentNode, vNode.func(vNode.props, vNode.children), functionalChildKey, index);
+        this.vdomData[key] = { vNode }
+    }
+
+    public hydrateClassNode(parentNode: DomElement, vNode: VirtualClassElement, key: string, index: number)
+    {
+        const inst = new vNode.ctor();
+        inst.vdomKey = createComponentKey(key);
+        inst.vdom = this;
+
+        this.vdomData[key] = { vNode, instance: inst }
+
+        this.hydrateDom(parentNode, inst.internalRender(vNode.props, vNode.children), inst.vdomKey, index);
+
+        inst.onMount();
+    }
+
+    public hydrateIntrinsicNode(parentNode: DomElement, vNode: VirtualIntrinsicElement, key: string, index: number)
+    {
+        const domElement = parentNode.childNodes.item(index) as DomElement;
+        this.vdomData[key] = { domNode: domElement, vNode };
+
+        for (let i = 0; i < vNode.children.length; i++)
+        {
+            while (domElement.childNodes.item(i).nodeType === Node.COMMENT_NODE)
+            {
+                domElement.removeChild(domElement.childNodes.item(i));
+            }
+
+            const child = vNode.children[i];
+            const childKey = createChildKey(child, key, i);
+            this.hydrateDom(domElement, child, childKey, i);
+        }
+    }
+
     //// Handling DOM attributes
 
     public applyAttributes(domElement: DomElement, currentProps: IntrinsicAttributes | undefined, newProps: IntrinsicAttributes | undefined): DiffResult
@@ -835,6 +913,11 @@ export function render(virtualNode: VirtualElement, parent: DomElement)
 export function vdom(type: VirtualNodeType, props: any | undefined = undefined, ...children: ChildVirtualNode[]): VirtualElement
 {
     return VDom.current.createVDom(type, props, ...children);
+}
+
+export function hydrate(virtualNode: VirtualElement, parent: HTMLElement)
+{
+    VDom.current.hydrate(virtualNode, parent);
 }
 
 if (typeof(document) !== 'undefined')

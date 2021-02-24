@@ -24,7 +24,7 @@ And in the `dist` folder will be the Javascript and Typescript typings file.
 Also the whole thing is one Typescript file so it's pretty easy to manually add it to your own source code.
 
 ## Features
-- Small file size (just over 2kb after compression)
+- Small file size about 2.5kb after compression.
 - Simple API, controlled via a class that can be subclassed for fine grain control.
 - No dependencies.
 - Written in Typescript.
@@ -33,6 +33,7 @@ Also the whole thing is one Typescript file so it's pretty easy to manually add 
 - Diffing process to reduce the number of DOM manipulations.
 - SVG support
 - Inline styles
+- Hydrating from server-side rendering.
 
 ## Why?
 I mostly wanted to understand the basics of how a virtual DOM TSX style framework operated so I created one myself. I also wanted it to be feature complete enough to create a simple website with it.

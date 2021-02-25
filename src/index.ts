@@ -710,6 +710,9 @@ export class VDom
             const childKey = createChildKey(child, key, i);
             this.hydrateDom(domElement, child, childKey, i);
         }
+
+        this.applyEventListeners(domElement, undefined, vNode.listeners);
+        this.applyProperties(domElement, undefined, vNode.properties);
     }
 
     //// Handling DOM attributes

@@ -1,4 +1,4 @@
-import { VDom, VirtualTextElement, VirtualIntrinsicElement, VirtualFunctionalElement, VirtualClassElement, VirtualElement, ClassComponentConstructor, FunctionalComponent, ComponentProperties, VDomData, IntrinsicAttributes, IntrinsicEventListeners, IntrinsicStyles, IntrinsicProperties, DiffResult, Props } from "../../../src";
+import { VDom, VirtualTextElement, VirtualIntrinsicElement, VirtualFunctionalElement, VirtualClassElement, VirtualElement, ClassComponentConstructor, FunctionalComponent, ComponentProperties, VDomData, IntrinsicAttributes, IntrinsicEventListeners, IntrinsicStyles, IntrinsicProperties, DiffResult, Props, DomNode, DomElement } from "../../../src";
 
 export class VDomStats
 {
@@ -105,25 +105,25 @@ export class VDomDebug extends VDom
         return super.createFunctionalNode(renderNode, inputProps, children);
     }
 
-    public renderTextNode(currentVDom: VDomData | undefined, parentNode: Node, vNode: VirtualTextElement, key: string)
+    public renderTextNode(currentVDom: VDomData | undefined, parentNode: DomElement, vNode: VirtualTextElement, key: string)
     {
         this.stats.textNodesRendered++;
         super.renderTextNode(currentVDom, parentNode, vNode, key);
     }
 
-    public renderFunctionalNode(parentNode: Node, vNode: VirtualFunctionalElement, key: string)
+    public renderFunctionalNode(parentNode: DomElement, vNode: VirtualFunctionalElement, key: string)
     {
         incField(this.stats.functionalComponentsRendered, vNode.func.name);
         super.renderFunctionalNode(parentNode, vNode, key);
     }
 
-    public renderClassNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualClassElement, key: string)
+    public renderClassNode(currentVDom: VDomData, parentNode: DomElement, vNode: VirtualClassElement, key: string)
     {
         incField(this.stats.classComponentsRendered, vNode.ctor.name);
         super.renderClassNode(currentVDom, parentNode, vNode, key);
     }
 
-    public renderIntrinsicNode(currentVDom: VDomData, parentNode: Node, vNode: VirtualIntrinsicElement, key: string)
+    public renderIntrinsicNode(currentVDom: VDomData, parentNode: DomElement, vNode: VirtualIntrinsicElement, key: string)
     {
         incField(this.stats.intrinsicNodesRendered, vNode.nodeName);
         super.renderIntrinsicNode(currentVDom, parentNode, vNode, key);

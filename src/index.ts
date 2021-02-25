@@ -816,7 +816,7 @@ const createChildKey = (child: VirtualElement, parentKey: string, index: number)
         const childKey = child.key;
         if (childKey != undefined)
         {
-            return `${parentKey}_${childKey}`;
+            return `${parentKey}_:${childKey}`;
         }
     }
     return `${parentKey}_${index}`;

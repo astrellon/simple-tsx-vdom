@@ -6,7 +6,7 @@ import { todoAppStore, State } from "./todoAppStore";
 import { App } from "./components/app";
 import { VDomDebug } from './vdomDebug';
 
-const vdomDebug = new VDomDebug();
+const vdomDebug = new VDomDebug(document);
 VDom.current = vdomDebug;
 
 function renderApp(state: State)

@@ -193,9 +193,9 @@ export abstract class ClassComponent<TProps extends Props = Props>
     {
         return !shallowEqual(this.props, newProps);
     }
-    public abstract render(): VirtualElement;
+    public abstract render(): VirtualElement | null | undefined;
 
-    public internalRender(props: TProps, children: VirtualElement[]): VirtualElement
+    public internalRender(props: TProps, children: VirtualElement[]): VirtualElement | null | undefined
     {
         this.props = props;
         this.children = children;
@@ -409,13 +409,18 @@ export class VDom
     //// Processing virtual elements into actual DOM elements.
 
     // Takes a virtual element and turns it into a DOM node.
-    public renderDom(parentNode: DomElement, vNode: VirtualElement, key: string)
+    public renderDom(parentNode: DomElement, vNode: VirtualElement | undefined | null, key: string)
     {
         const currentVDom = this.vdomData[key];
 
         if (this.hasVElementChanged(currentVDom?.vNode, vNode))
         {
             this.deleteVDomData(currentVDom, key);
+        }
+
+        if (!vNode)
+        {
+            return;
         }
 
         if (isTextNode(vNode))
@@ -473,11 +478,16 @@ export class VDom
     // Check if a virtual element has fundamentally changed, either it's not the same type (functional vs class vs intrinsic).
     // Also checks if they're same type of component if the function in the functional component is now a different function or
     // the intrinsic node type is different.
-    public hasVElementChanged(oldNode: VirtualElement, newNode: VirtualElement)
+    public hasVElementChanged(oldNode: VirtualElement, newNode: VirtualElement | undefined | null)
     {
         if (!oldNode)
         {
             return false;
+        }
+
+        if (!newNode)
+        {
+            return true;
         }
 
         if (isFunctionalNode(oldNode))
@@ -536,7 +546,11 @@ export class VDom
             return;
         }
 
-        this.renderDom(parentNode, inst.internalRender(vNode.props, vNode.children), inst.vdomKey);
+        const renderedVNode = inst.internalRender(vNode.props, vNode.children);
+        if (renderedVNode)
+        {
+            this.renderDom(parentNode, renderedVNode, inst.vdomKey);
+        }
         this.vdomData[key] = { vNode, instance: inst }
 
         if (isNew)
@@ -627,6 +641,11 @@ export class VDom
                 this.vdomData[createComponentKey(childKey)] :
                 this.vdomData[childKey];
 
+            if (!newVDom)
+            {
+                continue;
+            }
+
             if (domNodeChildren.item(i) !== newVDom.domNode)
             {
                 newVDom.domNode?.parentElement?.insertBefore(newVDom.domNode, domNodeChildren.item(i));
@@ -648,40 +667,51 @@ export class VDom
     // Most important on lower-powered devices. In someways it does mean a larger initial payload because
     // it'll contain the HTML, but it also means that the browser should be able to display the initial payload
     // before the scripts have finished loading/parsing.
-    public hydrateDom(parentNode: DomElement, vNode: VirtualElement, key: string, index: number)
+    public hydrateDom(parentNode: DomElement, vNode: VirtualElement | undefined | null, key: string, domIndex: number): boolean
     {
+        if (vNode == null)
+        {
+            return false;
+        }
+
         if (isTextNode(vNode))
         {
-            this.hydrateTextNode(parentNode, vNode, key, index);
+            return this.hydrateTextNode(parentNode, vNode, key, domIndex);
         }
         else if (isClassNode(vNode))
         {
-            this.hydrateClassNode(parentNode, vNode, key, index);
+            return this.hydrateClassNode(parentNode, vNode, key, domIndex);
         }
         else if (isFunctionalNode(vNode))
         {
-            this.hydrateFunctionalNode(parentNode, vNode, key, index);
+            return this.hydrateFunctionalNode(parentNode, vNode, key, domIndex);
         }
         else if (isIntrinsicNode(vNode))
         {
-            this.hydrateIntrinsicNode(parentNode, vNode, key, index);
+            return this.hydrateIntrinsicNode(parentNode, vNode, key, domIndex);
         }
+
+        return false;
     }
 
-    public hydrateTextNode(parentNode: DomElement, vNode: VirtualTextElement, key: string, index: number)
+    public hydrateTextNode(parentNode: DomElement, vNode: VirtualTextElement, key: string, domIndex: number)
     {
-        const domNode = parentNode.childNodes.item(index);
+        const domNode = parentNode.childNodes.item(domIndex);
         this.vdomData[key] = { domNode, vNode };
+
+        return true;
     }
 
-    public hydrateFunctionalNode(parentNode: DomElement, vNode: VirtualFunctionalElement, key: string, index: number)
+    public hydrateFunctionalNode(parentNode: DomElement, vNode: VirtualFunctionalElement, key: string, domIndex: number)
     {
         const functionalChildKey = createComponentKey(key);
-        this.hydrateDom(parentNode, vNode.func(vNode.props, vNode.children), functionalChildKey, index);
+        const hydrated = this.hydrateDom(parentNode, vNode.func(vNode.props, vNode.children), functionalChildKey, domIndex);
         this.vdomData[key] = { vNode }
+
+        return hydrated;
     }
 
-    public hydrateClassNode(parentNode: DomElement, vNode: VirtualClassElement, key: string, index: number)
+    public hydrateClassNode(parentNode: DomElement, vNode: VirtualClassElement, key: string, domIndex: number)
     {
         const inst = new vNode.ctor();
         inst.vdomKey = createComponentKey(key);
@@ -689,30 +719,46 @@ export class VDom
 
         this.vdomData[key] = { vNode, instance: inst }
 
-        this.hydrateDom(parentNode, inst.internalRender(vNode.props, vNode.children), inst.vdomKey, index);
+        const renderedVNode = inst.internalRender(vNode.props, vNode.children);
+        let hydrated = false;
+        if (renderedVNode)
+        {
+            hydrated = this.hydrateDom(parentNode, renderedVNode, inst.vdomKey, domIndex);
+        }
 
         inst.onMount();
+
+        return hydrated;
     }
 
-    public hydrateIntrinsicNode(parentNode: DomElement, vNode: VirtualIntrinsicElement, key: string, index: number)
+    public hydrateIntrinsicNode(parentNode: DomElement, vNode: VirtualIntrinsicElement, key: string, domIndex: number)
     {
-        const domElement = parentNode.childNodes.item(index) as DomElement;
+        const domElement = parentNode.childNodes.item(domIndex) as DomElement;
         this.vdomData[key] = { domNode: domElement, vNode };
 
-        for (let i = 0; i < vNode.children.length; i++)
+        for (let childIndex = 0, childDomIndex = 0; childIndex < vNode.children.length; childIndex++, childDomIndex++)
         {
-            while (domElement.childNodes.item(i).nodeType === Node.COMMENT_NODE)
+            let childDomNode;
+
+            while ((childDomNode = domElement.childNodes.item(childDomIndex)) && childDomNode.nodeType === Node.COMMENT_NODE)
             {
-                domElement.removeChild(domElement.childNodes.item(i));
+                domElement.removeChild(domElement.childNodes.item(childDomIndex));
             }
 
-            const child = vNode.children[i];
-            const childKey = createChildKey(child, key, i);
-            this.hydrateDom(domElement, child, childKey, i);
+            const child = vNode.children[childIndex];
+            const childKey = createChildKey(child, key, childIndex);
+
+            // If the hydration doesn't happen (should only be because of undefined/null from a functional or class component), then stay in place for checking the dom.
+            if (!this.hydrateDom(domElement, child, childKey, childDomIndex))
+            {
+                childDomIndex--;
+            }
         }
 
         this.applyEventListeners(domElement, undefined, vNode.listeners);
         this.applyProperties(domElement, undefined, vNode.properties);
+
+        return true;
     }
 
     //// Handling DOM attributes

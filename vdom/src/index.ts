@@ -833,7 +833,6 @@ export class VDom
         return diff;
     }
 
-
     // Basic process for checking what has changed between current and new props.
     public diffProps(currentProps: Props | undefined, newProps: Props = {}): DiffResult
     {
@@ -858,24 +857,6 @@ export class VDom
     }
 }
 
-const createChildKey = (child: VirtualElement, parentKey: string, index: number) =>
-{
-    if (!isTextNode(child))
-    {
-        const childKey = child.key;
-        if (childKey != undefined)
-        {
-            return `${parentKey}_:${childKey}`;
-        }
-    }
-    return `${parentKey}_${index}`;
-}
-
-const createComponentKey = (parentKey: string) =>
-{
-    return `${parentKey}_C`;
-}
-
 const attributeIsEventListener = (attribute: string, value?: string | EventListener | CSSStyleDeclaration): value is EventListener =>
 {
     return attribute.startsWith('on') && typeof(value) === 'function';
@@ -884,26 +865,6 @@ const attributeIsEventListener = (attribute: string, value?: string | EventListe
 const attributeIsProperty = (attribute: string): attribute is keyof IntrinsicProperties =>
 {
     return attribute === 'value' || attribute === 'checked' || attribute === 'selected';
-}
-
-const isIntrinsicNode = (vNode: VirtualElement): vNode is VirtualIntrinsicElement =>
-{
-    return !!(vNode as VirtualIntrinsicElement).nodeName;
-}
-
-const isClassNode = (vNode: VirtualElement): vNode is VirtualClassElement =>
-{
-    return !!(vNode as VirtualClassElement).ctor;
-}
-
-const isTextNode = (vNode: VirtualElement): vNode is VirtualTextElement =>
-{
-    return !!(vNode as VirtualTextElement).textValue;
-}
-
-const isFunctionalNode = (vNode: VirtualElement): vNode is VirtualFunctionalElement =>
-{
-    return !!(vNode as VirtualFunctionalElement).func;
 }
 
 const removeDomElement = (domElement?: DomNode) =>
@@ -922,6 +883,45 @@ const processComponentProps = (inputProps: ComponentProperties) =>
     }
     return inputProps;
 }
+
+export const createChildKey = (child: VirtualElement, parentKey: string, index: number) =>
+{
+    if (!isTextNode(child))
+    {
+        const childKey = child.key;
+        if (childKey != undefined)
+        {
+            return `${parentKey}_:${childKey}`;
+        }
+    }
+    return `${parentKey}_${index}`;
+}
+
+export const createComponentKey = (parentKey: string) =>
+{
+    return `${parentKey}_C`;
+}
+
+export const isIntrinsicNode = (vNode: VirtualElement): vNode is VirtualIntrinsicElement =>
+{
+    return !!(vNode as VirtualIntrinsicElement).nodeName;
+}
+
+export const isClassNode = (vNode: VirtualElement): vNode is VirtualClassElement =>
+{
+    return !!(vNode as VirtualClassElement).ctor;
+}
+
+export const isTextNode = (vNode: VirtualElement): vNode is VirtualTextElement =>
+{
+    return !!(vNode as VirtualTextElement).textValue;
+}
+
+export const isFunctionalNode = (vNode: VirtualElement): vNode is VirtualFunctionalElement =>
+{
+    return !!(vNode as VirtualFunctionalElement).func;
+}
+
 
 // This is only intended for internal use where the values that are given are never null!
 export const shallowEqual = (objA: any, objB: any) =>

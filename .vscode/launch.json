@@ -7,18 +7,18 @@
         {
             "type": "pwa-node",
             "request": "launch",
-            "name": "Debug Jest Tests",
-            "runtimeArgs": ["--inspect-brk", "${workspaceRoot}/node_modules/.bin/jest", "--runInBand", "--coverage", "false"],
+            "name": "Debug VDom Jest Tests",
+            "runtimeArgs": ["--inspect-brk", "${workspaceRoot}/vdom/node_modules/.bin/jest", "--runInBand", "--coverage", "false", "--roots", "${workspaceRoot}/vdom", "-c", "${workspaceRoot}/vdom/jest.config.js"],
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen"
-            // "skipFiles": [
-            //     "<node_internals>/**"
-            // ],
-            // "program": "${workspaceFolder}/dist/index.js",
-            // "preLaunchTask": "tsc: build - tsconfig.json",
-            // "outFiles": [
-            //     "${workspaceFolder}/dist/**/*.js"
-            // ]
+        },
+        {
+            "type": "pwa-node",
+            "request": "launch",
+            "name": "Debug Hydration Jest Tests",
+            "runtimeArgs": ["--inspect-brk", "${workspaceRoot}/hydration/node_modules/.bin/jest", "--runInBand", "--coverage", "false", "--roots", "${workspaceRoot}/hydration", "-c", "${workspaceRoot}/hydration/jest.config.js"],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
         }
     ]
 }

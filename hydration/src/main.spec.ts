@@ -1,4 +1,4 @@
-import { vdom, render, ClassComponent, VirtualElement, VDom } from "simple-tsx-vdom";
+import { vdom, render, ClassComponent, VirtualElement } from "simple-tsx-vdom";
 import { hydrate } from ".";
 
 test('hydrate basic', () =>

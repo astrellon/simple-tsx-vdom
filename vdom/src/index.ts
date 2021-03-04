@@ -247,8 +247,6 @@ export abstract class ClassComponent<TProps extends Props = Props>
 export class VDom
 {
     // Static fields
-    static readonly rootKey: string = 'R';
-
     // Keeps track of the current vdom that will be used by the default exported vdom/render functions.
     static current: VDom;
 
@@ -261,6 +259,9 @@ export class VDom
     // The document that the virtual dom is apart of.
     public doc: DomDocument;
 
+    // Root key used to define the entry point for a virtual dom
+    public readonly rootKey: string = 'R';
+
     // Create the VDom with the given document.
     constructor (doc: DomDocument)
     {
@@ -268,15 +269,10 @@ export class VDom
     }
 
     // The main render function which turns a virtual element into DOM elements.
-    public render(virtualNode: VirtualElement, parent: DomElement)
+    public render(virtualNode: VirtualElement, parent: DomElement, key?: string)
     {
         this.nsStack = [];
-        this.renderDom(parent, virtualNode, VDom.rootKey);
-    }
-
-    public hydrate(virtualNode: VirtualElement, parent: HTMLElement)
-    {
-        this.hydrateDom(parent, virtualNode, VDom.rootKey, 0);
+        this.renderDom(parent, virtualNode, key || this.rootKey);
     }
 
     //// Create virtual DOM elements
@@ -310,7 +306,7 @@ export class VDom
     // Clears the virtual DOM, deleting all created DOM elements along the way.
     public clear()
     {
-        this.deleteVDomData(this.vdomData[VDom.rootKey], VDom.rootKey);
+        this.deleteVDomData(this.vdomData[this.rootKey], this.rootKey);
         this.vdomData = {};
         this.nsStack = [];
     }
@@ -659,108 +655,6 @@ export class VDom
         }
     }
 
-    //// Hydration
-
-    // Hydration is the process of linking up existing elements with the virtual DOM.
-    // This allows us to create the DOM somewhere else (like on the server) and then reuse
-    // the elements rather than having to blow away the work done by the browser and server.
-    // Most important on lower-powered devices. In someways it does mean a larger initial payload because
-    // it'll contain the HTML, but it also means that the browser should be able to display the initial payload
-    // before the scripts have finished loading/parsing.
-    public hydrateDom(parentNode: DomElement, vNode: VirtualElement | undefined | null, key: string, domIndex: number): boolean
-    {
-        if (vNode == null)
-        {
-            return false;
-        }
-
-        if (isTextNode(vNode))
-        {
-            return this.hydrateTextNode(parentNode, vNode, key, domIndex);
-        }
-        else if (isClassNode(vNode))
-        {
-            return this.hydrateClassNode(parentNode, vNode, key, domIndex);
-        }
-        else if (isFunctionalNode(vNode))
-        {
-            return this.hydrateFunctionalNode(parentNode, vNode, key, domIndex);
-        }
-        else if (isIntrinsicNode(vNode))
-        {
-            return this.hydrateIntrinsicNode(parentNode, vNode, key, domIndex);
-        }
-
-        return false;
-    }
-
-    public hydrateTextNode(parentNode: DomElement, vNode: VirtualTextElement, key: string, domIndex: number)
-    {
-        const domNode = parentNode.childNodes.item(domIndex);
-        this.vdomData[key] = { domNode, vNode };
-
-        return true;
-    }
-
-    public hydrateFunctionalNode(parentNode: DomElement, vNode: VirtualFunctionalElement, key: string, domIndex: number)
-    {
-        const functionalChildKey = createComponentKey(key);
-        const hydrated = this.hydrateDom(parentNode, vNode.func(vNode.props, vNode.children), functionalChildKey, domIndex);
-        this.vdomData[key] = { vNode }
-
-        return hydrated;
-    }
-
-    public hydrateClassNode(parentNode: DomElement, vNode: VirtualClassElement, key: string, domIndex: number)
-    {
-        const inst = new vNode.ctor();
-        inst.vdomKey = createComponentKey(key);
-        inst.vdom = this;
-
-        this.vdomData[key] = { vNode, instance: inst }
-
-        const renderedVNode = inst.internalRender(vNode.props, vNode.children);
-        let hydrated = false;
-        if (renderedVNode)
-        {
-            hydrated = this.hydrateDom(parentNode, renderedVNode, inst.vdomKey, domIndex);
-        }
-
-        inst.onMount();
-
-        return hydrated;
-    }
-
-    public hydrateIntrinsicNode(parentNode: DomElement, vNode: VirtualIntrinsicElement, key: string, domIndex: number)
-    {
-        const domElement = parentNode.childNodes.item(domIndex) as DomElement;
-        this.vdomData[key] = { domNode: domElement, vNode };
-
-        for (let childIndex = 0, childDomIndex = 0; childIndex < vNode.children.length; childIndex++, childDomIndex++)
-        {
-            let childDomNode;
-
-            while ((childDomNode = domElement.childNodes.item(childDomIndex)) && childDomNode.nodeType === Node.COMMENT_NODE)
-            {
-                domElement.removeChild(domElement.childNodes.item(childDomIndex));
-            }
-
-            const child = vNode.children[childIndex];
-            const childKey = createChildKey(child, key, childIndex);
-
-            // If the hydration doesn't happen (should only be because of undefined/null from a functional or class component), then stay in place for checking the dom.
-            if (!this.hydrateDom(domElement, child, childKey, childDomIndex))
-            {
-                childDomIndex--;
-            }
-        }
-
-        this.applyEventListeners(domElement, undefined, vNode.listeners);
-        this.applyProperties(domElement, undefined, vNode.properties);
-
-        return true;
-    }
-
     //// Handling DOM attributes
 
     public applyAttributes(domElement: DomElement, currentProps: IntrinsicAttributes | undefined, newProps: IntrinsicAttributes | undefined): DiffResult
@@ -953,20 +847,15 @@ export const shallowEqual = (objA: any, objB: any) =>
 
 // Renders the given virtualNode into the given parent node.
 // This will clear the parent node of all its children.
-export function render(virtualNode: VirtualElement, parent: DomElement)
+export function render(virtualNode: VirtualElement, parent: DomElement, key?: string)
 {
-    VDom.current.render(virtualNode, parent);
+    VDom.current.render(virtualNode, parent, key);
 }
 
 // Helper function for creating virtual DOM object.
 export function vdom(type: VirtualNodeType, props: any | undefined = undefined, ...children: ChildVirtualNode[]): VirtualElement
 {
     return VDom.current.createVDom(type, props, ...children);
-}
-
-export function hydrate(virtualNode: VirtualElement, parent: HTMLElement)
-{
-    VDom.current.hydrate(virtualNode, parent);
 }
 
 if (typeof(document) !== 'undefined')

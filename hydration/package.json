@@ -1,6 +1,6 @@
 {
   "name": "simple-tsx-vdom-hydration",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Hydration support for the Simple TSX VDom",
   "main": "index.js",
   "scripts": {
@@ -27,6 +27,6 @@
     "uglify-es": "^3.3.9"
   },
   "peerDependencies": {
-    "simple-tsx-vdom": "file:../vdom"
+    "simple-tsx-vdom": "^0.5.0"
   }
 }

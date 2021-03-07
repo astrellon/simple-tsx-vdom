@@ -33,7 +33,7 @@ Also the whole thing is one Typescript file so it's pretty easy to manually add 
 - Diffing process to reduce the number of DOM manipulations.
 - SVG support
 - Inline styles
-- Hydrating from server-side rendering.
+- Hydrating from server-side rendering (with the use of [simple-tsx-vdom-hydration](https://www.npmjs.com/package/simple-tsx-vdom-hydration) package).
 
 ## Why?
 I mostly wanted to understand the basics of how a virtual DOM TSX style framework operated so I created one myself. I also wanted it to be feature complete enough to create a simple website with it.

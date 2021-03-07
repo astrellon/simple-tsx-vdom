@@ -1,6 +1,6 @@
 {
   "name": "simple-tsx-vdom-hydration",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Hydration support for the Simple TSX VDom",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

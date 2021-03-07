@@ -1,7 +1,7 @@
 // Shouldn't need this reference but VSCode doesn't like no tsconfig.json in the root folder of a project.
 /// <reference path="../node_modules/@types/jest/index.d.ts" />
 
-import { vdom, render, ClassComponent, VirtualElement, VDom } from ".";
+import { vdom, render, ClassComponent, VirtualElement, VDom, FunctionalComponent } from ".";
 
 beforeEach(() =>
 {
@@ -569,12 +569,23 @@ test('class with null', () =>
         }
     }
 
+    const TestFunc: FunctionalComponent<Props> = (props: Props) =>
+    {
+        const { name } = props;
+
+        if (name[0] === 'B') return null;
+
+        return vdom('strong', {}, 'TestFunc: ', name);
+    }
+
     document.body.innerHTML = '<main id="root"></main>';
     const rootEl = document.getElementById('root');
     const vdom1 = vdom('div', {id: 'mainId'},
         vdom(TestNode, {key: 'node1', name: 'Foo'}),
         vdom(TestNode, {key: 'node2', name: 'Bar'}),
-        vdom(TestNode, {key: 'node3', name: 'Baz'})
+        vdom(TestNode, {key: 'node3', name: 'Baz'}),
+        vdom(TestFunc, {key: 'node5', name: 'Blerty'}),
+        vdom(TestFunc, {key: 'node4', name: 'Qwerty'})
     );
 
     if (rootEl == null) { fail('Root element not created!'); }
@@ -589,7 +600,12 @@ test('class with null', () =>
         return mainEl.children.item(index) as Element;
     }
 
-    expect(document.body.innerHTML).toBe('<main id="root"><div id="mainId"><span>TestNode: Foo</span></div></main>');
+    expect(document.body.innerHTML).toBe('<main id="root">' +
+        '<div id="mainId">' +
+            '<span>TestNode: Foo</span>' +
+            '<strong>TestFunc: Qwerty</strong>' +
+        '</div>' +
+    '</main>');
 
     expect(createdNodes.length).toBe(3);
 
@@ -603,7 +619,9 @@ test('class with null', () =>
     const vdom2 = vdom('div', {id: 'mainId'},
         vdom(TestNode, {key: 'node3', name: 'Baz'}),
         vdom(TestNode, {key: 'node2', name: 'Bar'}),
-        vdom(TestNode, {key: 'node1', name: 'Foo'})
+        vdom(TestNode, {key: 'node1', name: 'Foo'}),
+        vdom(TestFunc, {key: 'node5', name: 'Blerty'}),
+        vdom(TestFunc, {key: 'node4', name: 'Qwerty'})
     );
 
     render(vdom2, rootEl);
@@ -617,15 +635,18 @@ test('class with null', () =>
     expect(createdNodes[2].renderCount).toBe(1);
     expect(createdNodes[2].props.name).toBe('Baz');
 
-    expect(mainEl.children.length).toBe(1);
+    expect(mainEl.children.length).toBe(2);
     expect(getChild(0).nodeName).toBe('SPAN');
     expect(getChild(0).innerHTML).toBe('TestNode: Foo');
+    expect(getChild(1).nodeName).toBe('STRONG');
+    expect(getChild(1).innerHTML).toBe('TestFunc: Qwerty');
 
     const vdom3 = vdom('div', {id: 'mainId'},
         vdom(TestNode, {key: 'node3', name: 'Baz'}),
         vdom(TestNode, {key: 'node2', name: 'A new name'}),
         vdom(TestNode, {key: 'node1', name: 'Foo'}),
         vdom(TestNode, {key: 'node4', name: 'Boop'}),
+        vdom(TestFunc, {key: 'node5', name: 'Ylerty'}),
     );
     render(vdom3, rootEl);
 
@@ -639,11 +660,13 @@ test('class with null', () =>
     expect(createdNodes[3].renderCount).toBe(1);
     expect(createdNodes[3].props.name).toBe('Boop');
 
-    expect(mainEl.children.length).toBe(2);
+    expect(mainEl.children.length).toBe(3);
     expect(getChild(0).nodeName).toBe('SPAN');
     expect(getChild(0).innerHTML).toBe('TestNode: A new name');
     expect(getChild(1).nodeName).toBe('SPAN');
     expect(getChild(1).innerHTML).toBe('TestNode: Foo');
+    expect(getChild(2).nodeName).toBe('STRONG');
+    expect(getChild(2).innerHTML).toBe('TestFunc: Ylerty');
 
     const vdom4 = vdom('div', {id: 'mainId'},
         vdom(TestNode, {key: 'node3', name: 'Baz'}),

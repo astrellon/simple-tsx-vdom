@@ -175,7 +175,7 @@ type Editable<T> =
 export type ChildVirtualNode = VirtualElement[] | VirtualElement | string | number | boolean;
 
 // Functional component, creates nodes based on the input.
-export type FunctionalComponent<TProps extends Props = Props | any> = (props: TProps, children: VirtualElement[]) => VirtualElement;
+export type FunctionalComponent<TProps extends Props = Props | any> = (props: TProps, children: VirtualElement[]) => VirtualElement | null | undefined;
 
 // Acceptable types for creating a virtual node, either an intrinsic type, a functional component or the constructor for a class component.
 export type VirtualNodeType = string | FunctionalComponent | ClassComponentConstructor;

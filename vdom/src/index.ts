@@ -186,6 +186,7 @@ export abstract class ClassComponent<TProps extends Props = Props>
     public children: VirtualElement[] = [];
     public vdom?: VDom = undefined;
     public vdomKey: string = '';
+    public prevRenderedResult: boolean = false;
 
     public onMount() { }
     public onUnmount() { }
@@ -405,7 +406,7 @@ export class VDom
     //// Processing virtual elements into actual DOM elements.
 
     // Takes a virtual element and turns it into a DOM node.
-    public renderDom(parentNode: DomElement, vNode: VirtualElement | undefined | null, key: string)
+    public renderDom(parentNode: DomElement, vNode: VirtualElement | undefined | null, key: string): boolean
     {
         const currentVDom = this.vdomData[key];
 
@@ -416,25 +417,27 @@ export class VDom
 
         if (!vNode)
         {
-            return;
+            return false;
         }
 
         if (isTextNode(vNode))
         {
-            this.renderTextNode(currentVDom, parentNode, vNode, key);
+            return this.renderTextNode(currentVDom, parentNode, vNode, key);
         }
         else if (isClassNode(vNode))
         {
-            this.renderClassNode(currentVDom, parentNode, vNode, key);
+            return this.renderClassNode(currentVDom, parentNode, vNode, key);
         }
         else if (isFunctionalNode(vNode))
         {
-            this.renderFunctionalNode(parentNode, vNode, key);
+            return this.renderFunctionalNode(parentNode, vNode, key);
         }
         else if (isIntrinsicNode(vNode))
         {
-            this.renderIntrinsicNode(currentVDom, parentNode, vNode, key);
+            return this.renderIntrinsicNode(currentVDom, parentNode, vNode, key);
         }
+
+        return false;
     }
 
     // Deletes a virtual element along with any created DOM elements.
@@ -516,14 +519,18 @@ export class VDom
             (currentVDom.domNode as DomText).nodeValue = vNode.textValue;
             this.vdomData[key] = { domNode: currentVDom.domNode, vNode }
         }
+
+        return true;
     }
 
     // Render a functional node.
     public renderFunctionalNode(parentNode: DomElement, vNode: VirtualFunctionalElement, key: string)
     {
         const functionalChildKey = createComponentKey(key);
-        this.renderDom(parentNode, vNode.func(vNode.props, vNode.children), functionalChildKey);
+        const rendered = this.renderDom(parentNode, vNode.func(vNode.props, vNode.children), functionalChildKey);
         this.vdomData[key] = { vNode }
+
+        return rendered;
     }
 
     // Render a class node, mount it if it's new and checks if the props have changed and ignore further rendering.
@@ -539,20 +546,25 @@ export class VDom
         }
         else if (!inst.hasChanged(vNode.props))
         {
-            return;
+            return inst.prevRenderedResult;
         }
 
         const renderedVNode = inst.internalRender(vNode.props, vNode.children);
+        let rendered = false;
         if (renderedVNode)
         {
-            this.renderDom(parentNode, renderedVNode, inst.vdomKey);
+            rendered = this.renderDom(parentNode, renderedVNode, inst.vdomKey);
         }
+
+        inst.prevRenderedResult = rendered;
         this.vdomData[key] = { vNode, instance: inst }
 
         if (isNew)
         {
             inst.onMount();
         }
+
+        return rendered;
     }
 
     // Renders an intrinsic node, either creates or updates it along with attributes, event listeners, inline styles or input properties.
@@ -606,6 +618,8 @@ export class VDom
         {
             this.nsStack.pop();
         }
+
+        return true;
     }
 
     public renderChildrenNodes(currentIntrinsicVNode: VirtualIntrinsicElement | undefined, domNode: DomElement, vNode: VirtualIntrinsicElement, key: string)
@@ -626,25 +640,32 @@ export class VDom
         }
 
         const domNodeChildren = domNode.childNodes;
-        for (let i = 0; i < vNode.children.length; i++)
+
+        for (let i = 0, domIndex = 0; i < vNode.children.length; i++, domIndex++)
         {
             const child = vNode.children[i];
             const childKey = createChildKey(child, key, i);
-            this.renderDom(domNode, child, childKey);
+            const rendered = this.renderDom(domNode, child, childKey);
             delete keysToRemove[childKey];
 
             const newVDom = isFunctionalNode(child) || isClassNode(child) ?
                 this.vdomData[createComponentKey(childKey)] :
                 this.vdomData[childKey];
 
+            if (!rendered)
+            {
+                domIndex--;
+                continue;
+            }
+
             if (!newVDom)
             {
                 continue;
             }
 
-            if (domNodeChildren.item(i) !== newVDom.domNode)
+            if (domNodeChildren.item(domIndex) !== newVDom.domNode)
             {
-                newVDom.domNode?.parentElement?.insertBefore(newVDom.domNode, domNodeChildren.item(i));
+                domNode.insertBefore(newVDom.domNode, domNodeChildren.item(domIndex));
             }
         }
 

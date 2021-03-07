@@ -1,3 +1,6 @@
+// Shouldn't need this reference but VSCode doesn't like no tsconfig.json in the root folder of a project.
+/// <reference path="../node_modules/@types/jest/index.d.ts" />
+
 import { vdom, render, ClassComponent, VirtualElement } from "simple-tsx-vdom";
 import { hydrate } from ".";
 

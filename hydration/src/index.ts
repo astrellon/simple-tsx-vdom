@@ -67,6 +67,8 @@ function hydrateClassNode(vdomInstance: VDom, parentNode: DomElement, vNode: Vir
         hydrated = hydrateDom(vdomInstance, parentNode, renderedVNode, inst.vdomKey, domIndex);
     }
 
+    inst.prevRenderedResult = hydrated;
+
     inst.onMount();
 
     return hydrated;

@@ -1,8 +1,11 @@
 {
   "name": "simple-tsx-vdom-hydration",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Hydration support for the Simple TSX VDom",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "unpkg": "dist/index.min.js",
+  "module": "dist/index.js",
   "scripts": {
     "build": "tsc && uglifyjs -c -m -o dist/index.min.js --source-map filename=dist/input.js.map dist/index.js",
     "test": "jest --verbose",
@@ -15,6 +18,10 @@
     "learning",
     "hydration"
   ],
+  "files": [
+    "dist"
+  ],
+  "npmName": "simple-tsx-vdom-hydration",
   "author": "Alan Lawrey",
   "license": "MIT",
   "devDependencies": {

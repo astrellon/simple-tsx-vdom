@@ -27,7 +27,12 @@ test('basic', () =>
 
     render(vdom1, parent);
 
-    expect(parent.toString()).toBe('<main id="mainId">' +
+    expect(parent.hydrateToString()).toBe('<main id="mainId">' +
+        '<h1 id="headerId">Hello</h1>' +
+        '<p id="paragraphId" class="paragraph-class">Whats up?</p>' +
+    '</main>');
+
+    expect(parent.renderToString()).toBe('<main id="mainId">' +
         '<h1 id="headerId">Hello</h1>' +
         '<p id="paragraphId" class="paragraph-class">Whats up?</p>' +
     '</main>');
@@ -44,7 +49,12 @@ test('style', () =>
 
     render(vdom1, parent);
 
-    expect(parent.toString()).toBe('<main>' +
+    expect(parent.hydrateToString()).toBe('<main>' +
+        '<div id="div1" style="background-color:red;">Hello</div>' +
+        '<div id="div2" style="margin:5px;">Whats up?</div>' +
+    '</main>');
+
+    expect(parent.renderToString()).toBe('<main>' +
         '<div id="div1" style="background-color:red;">Hello</div>' +
         '<div id="div2" style="margin:5px;">Whats up?</div>' +
     '</main>');
@@ -105,7 +115,7 @@ test('functional component', () =>
     const vdom1 = vdom(App, {title: 'App', name: 'Foo', useWrapper: true});
     render(vdom1, parent);
 
-    expect(parent.toString()).toBe('<main id="mainId">' +
+    expect(parent.hydrateToString()).toBe('<main id="mainId">' +
         '<h1>Hello <!-- -->App</h1>' +
         '<i>My name is <!-- -->Const</i>' +
         '<div class="wrapper-class">' +
@@ -113,6 +123,16 @@ test('functional component', () =>
             '<span>Wrapped 2</span>' +
         '</div>' +
         '<i>My name is <!-- -->Foo</i>' +
+    '</main>');
+
+    expect(parent.renderToString()).toBe('<main id="mainId">' +
+        '<h1>Hello App</h1>' +
+        '<i>My name is Const</i>' +
+        '<div class="wrapper-class">' +
+            '<span>Wrapped 1</span>' +
+            '<span>Wrapped 2</span>' +
+        '</div>' +
+        '<i>My name is Foo</i>' +
     '</main>');
 });
 
@@ -131,7 +151,15 @@ test('svg', () =>
 
     render(vdom1, parent);
 
-    expect(parent.toString()).toBe('<main id="mainId">' +
+    expect(parent.hydrateToString()).toBe('<main id="mainId">' +
+        '<span>Before SVG</span>' +
+        '<svg xmlns="http://www.w3.org/2000/svg" height="100" width="100">' +
+            '<circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red"/>' +
+        '</svg>' +
+        '<span>After SVG</span>' +
+    '</main>');
+
+    expect(parent.renderToString()).toBe('<main id="mainId">' +
         '<span>Before SVG</span>' +
         '<svg xmlns="http://www.w3.org/2000/svg" height="100" width="100">' +
             '<circle cx="50" cy="50" r="40" stroke="black" stroke-width="3" fill="red"/>' +

@@ -51,11 +51,11 @@ const App = <main>
     <Footer />
 </main>
 
-const parent = ssrDomDocument.createEmpty();
+const parent = SSRDomDocument.emptyElement();
 
 render(App, parent);
 
-console.log(parent.toString());
+console.log(parent.hydrateToString());
 
 // Console will output the HTML in a single line, formatted here for readability
 // <main>
@@ -77,6 +77,30 @@ In the above example you can see that there is a `<!-- -->` in the `footer`. Thi
 makes this specifically for server side rendering and then hydration on the frontend. The comment tag allows for breaking up between sequential text nodes that would other wise appear as a single text node when the browser parses the HTML.
 
 You can also see that there's no attempt to output event handlers for the buttons, which again should be handled by hydration on the frontend where all the elements should be used as sent from the server and event handlers attached.
+
+### What About Just Rendering To String?
+In the above example you can see that the method is called `hydrateToString` which will put `<!-- -->` between text nodes, for simply rendering to string there is another method `renderToString`.
+
+If we change that line in the above example it would look like this:
+
+```typescript
+console.log(parent.renderToString());
+
+// Console will output the HTML in a single line, formatted here for readability
+// <main>
+//     <nav>
+//         App Name
+//         <button>About</button>
+//         <button>Help</button>
+//     </nav>
+//
+//     <h1>Title</h1>
+//     <p style="background-color:red;">Hello</p>
+//     <p style="margin:5px;">Whats up?</p>
+//
+//     <footer>Alan Lawrey 2021</footer>
+// </main>
+```
 
 ## License
 MIT

@@ -40,7 +40,17 @@ export abstract class SSRDomNode implements DomNode
 
     public nodeType: number = 0;
 
-    public abstract toString(parentNode?: SSRDomNode, previousNode?: SSRDomNode): string;
+    public abstract toString(forHydration: boolean, parentNode?: SSRDomNode, previousNode?: SSRDomNode): string;
+
+    public hydrateToString(parentNode?: SSRDomNode, previousNode?: SSRDomNode)
+    {
+        return this.toString(true, parentNode, previousNode);
+    }
+
+    public renderToString(parentNode?: SSRDomNode, previousNode?: SSRDomNode)
+    {
+        return this.toString(false, parentNode, previousNode);
+    }
 }
 
 export class SSRDomText extends SSRDomNode implements DomText
@@ -53,9 +63,9 @@ export class SSRDomText extends SSRDomNode implements DomText
         this.nodeValue = nodeValue;
     }
 
-    public toString(parentNode?: SSRDomNode, previousNode?: SSRDomNode)
+    public toString(forHydration: boolean, parentNode?: SSRDomNode, previousNode?: SSRDomNode)
     {
-        if (previousNode instanceof SSRDomText)
+        if (forHydration && previousNode instanceof SSRDomText)
         {
             return '<!-- -->' + this.nodeValue;
         }
@@ -145,14 +155,14 @@ export class SSRDomElement extends SSRDomNode implements DomElement
     {
     }
 
-    public toString(parentNode?: SSRDomNode, previousNode?: SSRDomNode)
+    public toString(forHydration: boolean, parentNode?: SSRDomNode, previousNode?: SSRDomNode)
     {
         let innerHtml = '';
         for (let i = 0; i < this.childNodes.nodes.length; i++)
         {
             const prevNode = i > 0 ? this.childNodes.nodes[i - 1] as SSRDomNode: undefined;
             const node = this.childNodes.nodes[i] as SSRDomNode;
-            innerHtml += node.toString(this, prevNode);
+            innerHtml += node.toString(forHydration, this, prevNode);
         }
 
         if (this.nodeName === 'EMPTY')
@@ -212,10 +222,6 @@ export class SSRDomDocument implements DomDocument
     public createElement(type: string): SSRDomElement
     {
         return new SSRDomElement(type);
-    }
-    public createEmpty(): SSRDomElement
-    {
-        return SSRDomDocument.emptyElement();
     }
     public createElementNS(namespace: string, type: string): SSRDomElement
     {

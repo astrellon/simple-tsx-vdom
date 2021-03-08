@@ -27,8 +27,8 @@ const App = <main>
     <Footer />
 </main>
 
-const parent = ssrDomDocument.createEmpty();
+const parent = SSRDomDocument.emptyElement();
 
 render(App, parent);
 
-console.log(parent.toString());
+console.log(parent.hydrateToString());

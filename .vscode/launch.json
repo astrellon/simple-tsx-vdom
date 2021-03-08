@@ -19,6 +19,14 @@
             "runtimeArgs": ["--inspect-brk", "${workspaceRoot}/hydration/node_modules/.bin/jest", "--runInBand", "--coverage", "false", "--roots", "${workspaceRoot}/hydration", "-c", "${workspaceRoot}/hydration/jest.config.js"],
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen"
+        },
+        {
+            "type": "pwa-node",
+            "request": "launch",
+            "name": "Debug SSR Jest Tests",
+            "runtimeArgs": ["--inspect-brk", "${workspaceRoot}/ssr-vdom/node_modules/.bin/jest", "--runInBand", "--coverage", "false", "--roots", "${workspaceRoot}/ssr-vdom", "-c", "${workspaceRoot}/ssr-vdom/jest.config.js"],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
         }
     ]
 }

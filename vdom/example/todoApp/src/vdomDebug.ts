@@ -108,25 +108,25 @@ export class VDomDebug extends VDom
     public renderTextNode(currentVDom: VDomData | undefined, parentNode: DomElement, vNode: VirtualTextElement, key: string)
     {
         this.stats.textNodesRendered++;
-        super.renderTextNode(currentVDom, parentNode, vNode, key);
+        return super.renderTextNode(currentVDom, parentNode, vNode, key);
     }
 
     public renderFunctionalNode(parentNode: DomElement, vNode: VirtualFunctionalElement, key: string)
     {
         incField(this.stats.functionalComponentsRendered, vNode.func.name);
-        super.renderFunctionalNode(parentNode, vNode, key);
+        return super.renderFunctionalNode(parentNode, vNode, key);
     }
 
     public renderClassNode(currentVDom: VDomData, parentNode: DomElement, vNode: VirtualClassElement, key: string)
     {
         incField(this.stats.classComponentsRendered, vNode.ctor.name);
-        super.renderClassNode(currentVDom, parentNode, vNode, key);
+        return super.renderClassNode(currentVDom, parentNode, vNode, key);
     }
 
     public renderIntrinsicNode(currentVDom: VDomData, parentNode: DomElement, vNode: VirtualIntrinsicElement, key: string)
     {
         incField(this.stats.intrinsicNodesRendered, vNode.nodeName);
-        super.renderIntrinsicNode(currentVDom, parentNode, vNode, key);
+        return super.renderIntrinsicNode(currentVDom, parentNode, vNode, key);
     }
 }
 

@@ -1,4 +1,4 @@
-import { DomElement, DomNodeList, DomNode, DomText, DomInlineStyle, DomDocument } from 'simple-tsx-vdom';
+import { DomElement, DomNodeList, DomNode, DomText, DomInlineStyle, DomDocument, DomClassList } from 'simple-tsx-vdom';
 
 function quoteattr(s: string, preserveCR?: string)
 {
@@ -108,11 +108,80 @@ interface Attributes
     [key: string]: string;
 }
 
+export class SSRDomClassList implements DomClassList
+{
+    public get length()
+    {
+        return this.classes.length;
+    }
+
+    public classes: string[] = [];
+
+    item(index: number): string | null
+    {
+        return this.classes[index];
+    }
+    contains(className: string): boolean
+    {
+        return this.classes.includes(className);
+    }
+    add(className: string, ...classNames: string[]): void
+    {
+        this.classes.push(className);
+        for (const c of classNames)
+        {
+            this.classes.push(c);
+        }
+
+    }
+    remove(className: string, ...classNames: string[]): void
+    {
+        this.removeSingle(className);
+        for (const c of classNames)
+        {
+            this.removeSingle(c);
+        }
+    }
+
+    toggle(className: string, force?: boolean): boolean
+    {
+        const index = this.classes.indexOf(className);
+        if (index >= 0)
+        {
+            if (force)
+            {
+                return true;
+            }
+
+            this.removeSingle(className);
+            return false;
+        }
+
+        if (!force)
+        {
+            return false;
+        }
+
+        this.classes.push(className);
+        return true;
+    }
+
+    private removeSingle(className: string)
+    {
+        let index = this.classes.indexOf(className);
+        if (index >= 0)
+        {
+            this.classes.splice(index, 1);
+        }
+    }
+}
+
 export class SSRDomElement extends SSRDomNode implements DomElement
 {
     public readonly nodeName: string
     public childNodes: SSRDomNodeList = new SSRDomNodeList();
     public style: SSRDomInlineStyle = new SSRDomInlineStyle();
+    public classList: SSRDomClassList = new SSRDomClassList();
 
     constructor (nodeName: string, xmlns: string = '')
     {
@@ -149,6 +218,11 @@ export class SSRDomElement extends SSRDomNode implements DomElement
     {
         this.childNodes.nodes.push(node);
         return node;
+    }
+
+    public insertBefore(newNode: any, referenceNode: any)
+    {
+        return newNode;
     }
 
     public removeChild(node: any)
@@ -195,6 +269,7 @@ export class SSRDomElement extends SSRDomNode implements DomElement
     public toStringAttributes(parentNode?: SSRDomNode)
     {
         let result = '';
+        let className = '';
         for (const key in this.attributes)
         {
             const value = this.attributes[key];
@@ -205,9 +280,31 @@ export class SSRDomElement extends SSRDomNode implements DomElement
                 continue;
             }
 
-            result += ` ${key}`;
-            result += `="${quoteattr(value)}"`;
+            if (key === 'class')
+            {
+                className = quoteattr(value);
+            }
+            else
+            {
+                result += ` ${key}`;
+                result += `="${quoteattr(value)}"`;
+            }
         }
+
+        if (this.classList.length > 0)
+        {
+            if (className.length > 0)
+            {
+                className += ' ';
+            }
+            className += this.classList.classes.join(' ');
+        }
+
+        if (className.length > 0)
+        {
+            result += ` class="${className}"`;
+        }
+
         return result;
     }
 }

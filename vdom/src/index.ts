@@ -117,6 +117,15 @@ export interface DomInlineStyle
     setProperty: (key: string, value: any) => void;
     removeProperty: (key: string) => void;
 }
+export interface DomClassList
+{
+    readonly length: number;
+    item(index: number): string | null;
+    contains(className: string): boolean;
+    add(className: string, ...classNames: string[]): void;
+    remove(className: string, ...classNames: string[]): void;
+    toggle(className: string, force: boolean): boolean;
+}
 export interface DomElement extends DomNode
 {
     setAttribute: (qualifiedName: string, value: string) => void;
@@ -125,10 +134,19 @@ export interface DomElement extends DomNode
     removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;
     appendChild: (node: any) => any;
     removeChild: (node: any) => any;
+    insertBefore: (newNode: any, referenceNode: any) => any;
     childNodes: DomNodeList;
     style: DomInlineStyle;
+    classList: DomClassList;
 
-    [key: string]: any;
+    // Value for most input elements
+    value?: string;
+
+    // Checked boolean for inputs
+    checked?: boolean;
+
+    // Selected boolean for option elements
+    selected?: boolean;
 }
 
 //// Internal Diffing Types
@@ -777,11 +795,11 @@ export class VDom
 
         for (const prop in diff.remove)
         {
-            domElement[prop] = undefined;
+            (domElement as any)[prop] = undefined;
         }
         for (const prop in diff.add)
         {
-            domElement[prop] = diff.add[prop];
+            (domElement as any)[prop] = diff.add[prop];
         }
 
         return diff;

@@ -1,7 +1,7 @@
 // Shouldn't need this reference but VSCode doesn't like no tsconfig.json in the root folder of a project.
 /// <reference path="../node_modules/@types/jest/index.d.ts" />
 
-import { vdom, render, VirtualElement, VDom } from "simple-tsx-vdom";
+import { vdom, render, VirtualElement, VDom, ClassComponent, DomElement } from "simple-tsx-vdom";
 import { SSRDomDocument } from ".";
 
 beforeAll(() =>
@@ -57,6 +57,42 @@ test('style', () =>
     expect(parent.renderToString()).toBe('<main>' +
         '<div id="div1" style="background-color:red;">Hello</div>' +
         '<div id="div2" style="margin:5px;">Whats up?</div>' +
+    '</main>');
+});
+
+test('classlist', () =>
+{
+    interface Props
+    {
+        readonly content: string;
+    }
+    class TestComp extends ClassComponent<Props>
+    {
+        public onMount()
+        {
+            const domNode = this.rootDomNode() as DomElement;
+            domNode.classList.add('mounted');
+        }
+        public render()
+        {
+            return vdom('div', {}, 'TestComp: ', this.props.content);
+        }
+    }
+
+    const vdom1 = vdom('main', {} ,
+        vdom(TestComp, {content: 'Foo'})
+    );
+
+    const parent = SSRDomDocument.emptyElement();
+
+    render(vdom1, parent);
+
+    expect(parent.hydrateToString()).toBe('<main>' +
+        '<div class="mounted">TestComp: <!-- -->Foo</div>' +
+    '</main>');
+
+    expect(parent.renderToString()).toBe('<main>' +
+        '<div class="mounted">TestComp: Foo</div>' +
     '</main>');
 });
 

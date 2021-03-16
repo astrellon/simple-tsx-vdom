@@ -1,6 +1,6 @@
 {
   "name": "simple-tsx-vdom",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "A simple virtual DOM with TSX support, not made for performance but for learning",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -20,7 +20,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && cp src/jsx.d.ts dist/jsx.d.ts && terser -c -m toplevel -o dist/index.min.js --source-map filename=dist/input.js.map dist/index.js",
+    "build": "tsc && cp src/jsx.d.ts dist/jsx.d.ts && terser -c -m toplevel -o dist/index.min.js --source-map filename=dist/index.js.map dist/index.js",
     "test": "jest --verbose",
     "coverage": "jest --coverage --coverageDirectory='coverage'"
   },

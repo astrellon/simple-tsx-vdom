@@ -180,6 +180,9 @@ export type FunctionalComponent<TProps extends Props = Props | any> = (props: TP
 // Acceptable types for creating a virtual node, either an intrinsic type, a functional component or the constructor for a class component.
 export type VirtualNodeType = string | FunctionalComponent | ClassComponentConstructor;
 
+// Used for triggering the final unmounting.
+export type FinishUnmountHandler = () => void;
+
 export abstract class ClassComponent<TProps extends Props = Props>
 {
     public props: TProps = ({} as any);
@@ -187,9 +190,13 @@ export abstract class ClassComponent<TProps extends Props = Props>
     public vdom?: VDom = undefined;
     public vdomKey: string = '';
     public prevRenderedResult: boolean = false;
+    public unmounting: boolean = false;
 
     public onMount() { }
-    public onUnmount() { }
+
+    // Called when unmounting. Calling finishUnmount is required to actually unmount the dom element.
+    // Calling later allows for animating something away before actually removing it.
+    public onUnmount(finishUnmount: FinishUnmountHandler) { finishUnmount(); }
     public hasChanged(newProps: TProps)
     {
         return !shallowEqual(this.props, newProps);
@@ -211,11 +218,29 @@ export abstract class ClassComponent<TProps extends Props = Props>
             return;
         }
 
+        const domNode = this.rootDomNode();
+        if (!domNode)
+        {
+            return;
+        }
+
+        this.vdom.renderDom(domNode.parentElement as DomElement, this.render(), this.vdomKey);
+    }
+
+    public rootDomNode()
+    {
+        if (!this.vdom)
+        {
+            return null;
+        }
+
         const vdomNode = this.vdom.vdomData[this.vdomKey];
         if (vdomNode)
         {
-            this.vdom.renderDom((vdomNode.domNode as DomNode).parentElement as DomElement, this.render(), this.vdomKey);
+            return (vdomNode.domNode as DomNode);
         }
+
+        return null;
     }
 }
 
@@ -460,13 +485,26 @@ export class VDom
         }
         else if (isFunctionalNode(vdomNode.vNode) || isClassNode(vdomNode.vNode))
         {
-            const functionalChildKey = createComponentKey(key);
-            const functionalChildVDom = this.vdomData[functionalChildKey];
-            this.deleteVDomData(functionalChildVDom, functionalChildKey);
+            const componentChildKey = createComponentKey(key);
+            const componentChildVDom = this.vdomData[componentChildKey];
 
             if (isClassNode(vdomNode.vNode))
             {
-                (vdomNode.instance as ClassComponent).onUnmount();
+                const classComponent = vdomNode.instance as ClassComponent;
+                classComponent.unmounting = true;
+
+                classComponent.onUnmount(() =>
+                {
+                    // The component could be re-mounted whilst it's unmounting, if that changes don't actually unmount.
+                    if (classComponent.unmounting)
+                    {
+                        this.deleteVDomData(componentChildVDom, componentChildKey)
+                    }
+                });
+            }
+            else
+            {
+                this.deleteVDomData(componentChildVDom, componentChildKey);
             }
         }
 
@@ -559,8 +597,9 @@ export class VDom
         inst.prevRenderedResult = rendered;
         this.vdomData[key] = { vNode, instance: inst }
 
-        if (isNew)
+        if (isNew || inst.unmounting)
         {
+            inst.unmounting = false;
             inst.onMount();
         }
 

@@ -679,6 +679,25 @@ export class VDom
         return true;
     }
 
+    protected getChildWithDomNode(child: VirtualElement, childKey: string) : DomNode | undefined
+    {
+        const newVDom = isFunctionalNode(child) || isClassNode(child) ?
+            this.vdomData[createComponentKey(childKey)] :
+            this.vdomData[childKey];
+
+        if (!newVDom)
+        {
+            return undefined;
+        }
+
+        if (!newVDom.domNode && (isFunctionalNode(newVDom.vNode) || isClassNode(newVDom.vNode)))
+        {
+            return this.getChildWithDomNode(newVDom.vNode, createComponentKey(childKey));
+        }
+
+        return newVDom.domNode;
+    }
+
     public renderChildrenNodes(currentIntrinsicVNode: VirtualIntrinsicElement | undefined, domNode: DomElement, vNode: VirtualIntrinsicElement, key: string)
     {
         const previousChildren = currentIntrinsicVNode?.children;
@@ -705,24 +724,22 @@ export class VDom
             const rendered = this.renderDom(domNode, child, childKey);
             delete keysToRemove[childKey];
 
-            const newVDom = isFunctionalNode(child) || isClassNode(child) ?
-                this.vdomData[createComponentKey(childKey)] :
-                this.vdomData[childKey];
-
             if (!rendered)
             {
                 domIndex--;
                 continue;
             }
 
-            if (!newVDom)
+            const newDomNode = this.getChildWithDomNode(child, childKey);
+
+            if (!newDomNode)
             {
                 continue;
             }
 
-            if (domNodeChildren.item(domIndex) !== newVDom.domNode)
+            if (domNodeChildren.item(domIndex) !== newDomNode)
             {
-                domNode.insertBefore(newVDom.domNode, domNodeChildren.item(domIndex));
+                domNode.insertBefore(newDomNode, domNodeChildren.item(domIndex));
             }
         }
 

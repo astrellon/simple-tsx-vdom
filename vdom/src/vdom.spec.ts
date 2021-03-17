@@ -1165,3 +1165,53 @@ test('insert start node', () =>
 
     expect(document.body.innerHTML).toBe('<main id="root"><div class="div-class"><i>Slanted</i><strong>Bold Text</strong><span>Normal Text</span></div></main>');
 });
+
+test('nested classes', () =>
+{
+    interface PropsInner
+    {
+        readonly name: string;
+    }
+
+    class Inner extends ClassComponent<PropsInner>
+    {
+        public render()
+        {
+            return vdom('strong', {}, `Name: ${this.props.name}`);
+        }
+    }
+
+    interface PropsOuter
+    {
+        readonly name: string;
+    }
+
+    class Outer extends ClassComponent<PropsOuter>
+    {
+        public render()
+        {
+            return vdom(Inner, {name: this.props.name});
+        }
+    }
+
+    document.body.innerHTML = '<main id="root"></main>';
+    const rootEl = document.getElementById('root');
+
+    if (rootEl == null) { fail('Root element not created!'); }
+
+    const vdom1 = vdom('div', {},
+        vdom(Outer, {name: 'Foo'}),
+    );
+
+    render(vdom1, rootEl);
+
+    expect(document.body.innerHTML).toBe('<main id="root"><div><strong>Name: Foo</strong></div></main>');
+
+    const vdom2 = vdom('div', {},
+        vdom(Outer, {name: 'Bar'}),
+    );
+
+    render(vdom2, rootEl);
+
+    expect(document.body.innerHTML).toBe('<main id="root"><div><strong>Name: Bar</strong></div></main>');
+});

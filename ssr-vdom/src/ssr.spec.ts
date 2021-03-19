@@ -203,3 +203,22 @@ test('svg', () =>
         '<span>After SVG</span>' +
     '</main>');
 });
+
+test('images', () =>
+{
+    const vdom1 = vdom('main', {id: 'mainId'},
+        vdom('img', {src: '/image.png'})
+    );
+
+    const parent = SSRDomDocument.emptyElement();
+
+    render(vdom1, parent);
+
+    expect(parent.hydrateToString()).toBe('<main id="mainId">' +
+        '<img src="/image.png"/>' +
+    '</main>');
+
+    expect(parent.renderToString()).toBe('<main id="mainId">' +
+        '<img src="/image.png"/>' +
+    '</main>');
+});

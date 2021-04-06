@@ -37,7 +37,6 @@ export class SSRDomNodeList implements DomNodeList
 export abstract class SSRDomNode implements DomNode
 {
     public parentElement: DomElement | null = null;
-
     public nodeType: number = 0;
 
     public abstract toString(forHydration: boolean, parentNode?: SSRDomNode, previousNode?: SSRDomNode): string;
@@ -264,6 +263,34 @@ export class SSRDomElement extends SSRDomNode implements DomElement
         }
 
         return ` style="${result}"`;
+    }
+
+    public querySelector(selectors: string): any | null
+    {
+        for (const child of this.childNodes.nodes)
+        {
+            if (child instanceof SSRDomElement)
+            {
+                if (child.nodeName === selectors)
+                {
+                    return child;
+                }
+            }
+        }
+
+        for (const child of this.childNodes.nodes)
+        {
+            if (child instanceof SSRDomElement)
+            {
+                const childResult = child.querySelector(selectors);
+                if (childResult)
+                {
+                    return childResult;
+                }
+            }
+        }
+
+        return null;
     }
 
     public toStringAttributes(parentNode?: SSRDomNode)

@@ -138,6 +138,7 @@ export interface DomElement extends DomNode
     childNodes: DomNodeList;
     style: DomInlineStyle;
     classList: DomClassList;
+    querySelector(selectors: string): any | null;
 
     // Value for most input elements
     value?: string;

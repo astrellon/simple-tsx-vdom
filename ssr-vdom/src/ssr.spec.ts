@@ -222,3 +222,38 @@ test('images', () =>
         '<img src="/image.png"/>' +
     '</main>');
 });
+
+test('very basic query selector support', () =>
+{
+    interface Props
+    {
+        readonly content: string;
+    }
+    class TestComp extends ClassComponent<Props>
+    {
+        public onMount()
+        {
+            const domNode = this.rootDomNode() as DomElement;
+            const span = domNode.querySelector('span') as DomElement;
+            span.classList.add('mounted');
+        }
+        public render()
+        {
+            return vdom('div', {},
+                vdom('strong', {}, 'TestComp: '),
+                vdom('span', {}, this.props.content));
+        }
+    }
+
+    const vdom1 = vdom('main', {} ,
+        vdom(TestComp, {content: 'Foo'})
+    );
+
+    const parent = SSRDomDocument.emptyElement();
+
+    render(vdom1, parent);
+
+    expect(parent.renderToString()).toBe('<main>' +
+        '<div><strong>TestComp: </strong><span class="mounted">Foo</span></div>' +
+    '</main>');
+});

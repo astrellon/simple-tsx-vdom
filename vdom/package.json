@@ -1,6 +1,6 @@
 {
   "name": "simple-tsx-vdom",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "description": "A simple virtual DOM with TSX support, not made for performance but for learning",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

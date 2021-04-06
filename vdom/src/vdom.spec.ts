@@ -63,7 +63,7 @@ test('styles', () =>
     document.body.innerHTML = '<main id="root"></main>';
     const rootEl = document.getElementById('root');
     const vdom1 = vdom('main', {} ,
-        vdom('div', {id: 'div1', style: {'background-color': 'red'}}, 'Hello'),
+        vdom('div', {id: 'div1', style: {'background-color': 'red', width: '100%'}}, 'Hello'),
         vdom('div', {id: 'div2', style: {margin: '5px'}}, 'Whats up?')
     );
 
@@ -86,8 +86,11 @@ test('styles', () =>
     expect(div1El.style.margin).toBe('');
     expect(div2El.style.margin).toBe('5px');
 
+    expect(div1El.style.width).toBe('100%');
+    expect(div2El.style.width).toBe('');
+
     const vdom2 = vdom('main', {} ,
-        vdom('div', {id: 'div1', style: {'background-color': 'green', margin: '7px'}}, 'Hello'),
+        vdom('div', {id: 'div1', style: {'background-color': 'green', margin: '0px auto'}}, 'Hello'),
         vdom('div', {id: 'div2', style: {}}, 'Whats up?')
     );
 
@@ -96,7 +99,7 @@ test('styles', () =>
     expect(div1El.style.backgroundColor).toBe('green');
     expect(div2El.style.backgroundColor).toBe('');
 
-    expect(div1El.style.margin).toBe('7px');
+    expect(div1El.style.margin).toBe('0px auto');
     expect(div2El.style.margin).toBe('');
 
     const vdom3 = vdom('main', {} ,
@@ -1214,4 +1217,55 @@ test('nested classes', () =>
     render(vdom2, rootEl);
 
     expect(document.body.innerHTML).toBe('<main id="root"><div><strong>Name: Bar</strong></div></main>');
+});
+
+test('nested classes arrays', () =>
+{
+    interface PropsInner
+    {
+        readonly name: string;
+    }
+
+    class Inner extends ClassComponent<PropsInner>
+    {
+        public render()
+        {
+            return vdom('strong', {}, `Name: ${this.props.name}`);
+        }
+    }
+
+    interface PropsOuter
+    {
+        readonly names: string[];
+    }
+
+    class Outer extends ClassComponent<PropsOuter>
+    {
+        public render()
+        {
+            //return vdom(Inner, {}, this.props.names.map(name => vdom()));
+            return vdom('div', {}, this.props.names.map(name => vdom(Inner, {name})));
+        }
+    }
+
+    document.body.innerHTML = '<main id="root"></main>';
+    const rootEl = document.getElementById('root');
+
+    if (rootEl == null) { fail('Root element not created!'); }
+
+    const vdom1 = vdom('div', {},
+        vdom(Outer, {names: ['Foo', 'Bar']}),
+    );
+
+    render(vdom1, rootEl);
+
+    expect(document.body.innerHTML).toBe('<main id="root"><div><div><strong>Name: Foo</strong><strong>Name: Bar</strong></div></div></main>');
+
+    const vdom2 = vdom('div', {},
+        vdom(Outer, {names: ['Bar', 'Baz']}),
+    );
+
+    render(vdom2, rootEl);
+
+    expect(document.body.innerHTML).toBe('<main id="root"><div><div><strong>Name: Bar</strong><strong>Name: Baz</strong></div></div></main>');
 });
